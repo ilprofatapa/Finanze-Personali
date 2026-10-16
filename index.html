@@ -257,7 +257,7 @@ function render() {
   if (!CFG.url || !CFG.token) return vistaSetup();
   if (!D) return ($('#main').innerHTML = '<div class="vuoto">Caricamento…</div>');
   ({ home: vistaHome, nuovo: vistaNuovo, conti: vistaConti, registro: vistaRegistro, assistente: vistaAssistente,
-     proposte: vistaProposte, fiscale: vistaFiscale, impostazioni: vistaSetup }[VISTA] || vistaHome)();
+     proposte: vistaProposte, fiscale: vistaFiscale, ricorrenti: vistaRicorrenti, impostazioni: vistaSetup }[VISTA] || vistaHome)();
 }
 
 /* ═════════════ Setup / impostazioni ═════════════ */
@@ -311,13 +311,29 @@ function vistaHome() {
       <button class="btn primary big" id="hFoto">📷 Foto / screenshot</button>
       <button class="btn big" id="hNuovo">✍️ Nuovo movimento</button>
     </div>
+    ${(D.scadenze || []).length ? '<h2>🔔 Da confermare</h2>' + D.scadenze.map((x, i) => `
+      <div class="card scad" data-i="${i}">
+        <div class="row between"><b>${esc(x.nome)}</b><span class="muted" style="font-size:13px">${dataIT(x.data)}</span></div>
+        <div class="muted" style="font-size:13px">${esc(x.nomeAvere)} → ${esc(x.nomeDare)}${x.dettaglio ? ' · ' + esc(x.dettaglio) : ''}</div>
+        <div class="row" style="margin-top:10px">
+          <input class="sImp" inputmode="decimal" value="${String(x.importoProposto || 0).replace('.', ',')}" style="flex:1">
+          <button class="btn small sSalta">Salta</button>
+          <button class="btn small primary sOk">Conferma</button>
+        </div>
+      </div>`).join('') : ''}
     ${D.aiAttiva ? '' : '<div class="warn">La lettura delle foto e l’assistente non sono ancora attivi: nel foglio usa <b>💰 Finanze → Imposta chiave Gemini</b>.</div>'}
-    <div class="row between"><h2>Ultimi movimenti</h2><button class="btn small" id="hFisc">🧾 Fiscale</button></div>
+    <div class="row between"><h2>Ultimi movimenti</h2><div class="row"><button class="btn small" id="hRic">🔁 Ricorrenti</button><button class="btn small" id="hFisc">🧾 Fiscale</button></div></div>
     <div class="card list" id="hUltimi"></div>
     <p class="muted" style="font-size:12px;text-align:center">${ora ? 'Aggiornato ' + new Date(ora).toLocaleString('it-IT') : ''}</p>`;
   $('#hFoto').onclick = () => $('#fileFoto').click();
   $('#hNuovo').onclick = () => vai('nuovo');
   $('#hFisc').onclick = () => vai('fiscale');
+  $('#hRic').onclick = () => vai('ricorrenti');
+  document.querySelectorAll('.scad').forEach(card => {
+    const x = D.scadenze[+card.dataset.i];
+    card.querySelector('.sOk').onclick = () => confermaScad(x, card.querySelector('.sImp').value, false);
+    card.querySelector('.sSalta').onclick = () => { if (confirm('Saltare questa scadenza? Non verrà registrato nulla e passerà alla prossima.')) confermaScad(x, 0, true); };
+  });
   listaMovimenti($('#hUltimi'), (D.ultimi || []).slice(0, 6));
 }
 
@@ -840,12 +856,16 @@ async function vistaFiscale() {
 
 /* ═════════════ Assistente ═════════════ */
 function md(t) {
-  let h = esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>');
-  const righe = h.split('\n'); let out = '', inLista = false;
+  const inline = x => x.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|[^*\w])\*([^*\s][^*]*?)\*(?!\*)/g, '$1<i>$2</i>').replace(/`([^`]+)`/g, '<code>$1</code>');
+  const righe = esc(t).split('\n'); let out = '', inLista = false;
   righe.forEach(r => {
-    const m = r.match(/^\s*(?:[-*•]|\d+[.)])\s+(.*)$/);
-    if (m) { if (!inLista) { out += '<ul>'; inLista = true; } out += '<li>' + m[1] + '</li>'; }
-    else { if (inLista) { out += '</ul>'; inLista = false; } out += r ? r + '<br>' : '<br>'; }
+    const m = r.match(/^(\s*)(?:[-*•]|\d+[.)])\s+(.*)$/);
+    if (m) {
+      if (!inLista) { out += '<ul>'; inLista = true; }
+      const liv = Math.min(3, Math.floor(m[1].replace(/\t/g, '    ').length / 2));
+      out += '<li' + (liv ? ' style="margin-left:' + (liv * 14) + 'px;list-style:circle"' : '') + '>' + inline(m[2]) + '</li>';
+    }
+    else { if (inLista) { out += '</ul>'; inLista = false; } out += r ? inline(r) + '<br>' : '<br>'; }
   });
   if (inLista) out += '</ul>';
   return out.replace(/(<br>)+$/, '');
@@ -889,6 +909,120 @@ async function invia(testo) {
     CHAT.push({ ruolo: 'assistente', testo: '⚠️ ' + e.message });
   }
   if (VISTA === 'assistente') vistaAssistente();
+}
+
+/* ═════════════ Ricorrenti ═════════════ */
+async function confermaScad(x, importo, salta) {
+  attesa(true, salta ? 'Salto la scadenza…' : 'Registro…');
+  try {
+    await api('confermaScadenza', { id: x.id, importo, salta });
+    await caricaDati(false);
+    toast(salta ? 'Scadenza saltata' : 'Registrato ✓');
+    render();
+  } catch (e) { toast(e.message, 5000); }
+  finally { attesa(false); }
+}
+
+function prossimoGiorno(g) {
+  const oggi = new Date(); oggi.setHours(0, 0, 0, 0);
+  const fai = (y, m) => new Date(y, m, Math.min(g, new Date(y, m + 1, 0).getDate()));
+  let d = fai(oggi.getFullYear(), oggi.getMonth());
+  if (d < oggi) d = fai(oggi.getFullYear(), oggi.getMonth() + 1);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function vistaRicorrenti() {
+  const L = (D.ricorrenti || []).slice().sort((a, b) => (b.attivo - a.attivo) || (a.prossima < b.prossima ? -1 : 1));
+  $('#main').innerHTML = `
+    <div class="row between"><h2>Ricorrenti</h2><button class="btn small primary" id="rcNuovo">+ Nuovo</button></div>
+    <div class="hint">Alla scadenza il movimento compare in Home, già compilato: lo confermi, correggi l'importo o lo salti. Non viene mai registrato da solo.</div>
+    <div class="card list" style="margin-top:12px">
+      ${L.length ? L.map((r, i) => `
+        <div class="item" data-i="${i}" style="${r.attivo ? '' : 'opacity:.5'}">
+          <div style="min-width:0"><div class="t">${esc(r.nome)}</div>
+            <div class="s">${r.tipo === 'SALDO_CARTA' ? 'Saldo carta · chiusura il ' + r.chiusura : (r.mesi === 1 ? 'Ogni mese' : 'Ogni ' + r.mesi + ' mesi') + (r.residue !== null ? ' · ' + r.residue + ' rate residue' : '')}
+              · ${r.attivo ? 'prossima ' + dataIT(r.prossima) : 'concluso'}</div></div>
+          <div class="imp">${r.tipo === 'SALDO_CARTA' ? 'auto' : eur(r.importo)}</div>
+        </div>`).join('') : '<div class="vuoto">Nessun movimento ricorrente.<br>Aggiungi rate, saldo della carta o spese fisse.</div>'}
+    </div>`;
+  $('#rcNuovo').onclick = sceltaRicorrente;
+  document.querySelectorAll('#main .item[data-i]').forEach(it => it.onclick = () => formRicorrente(null, L[+it.dataset.i]));
+}
+
+function sceltaRicorrente() {
+  apriSheet(`
+    <h3>Nuovo movimento ricorrente</h3>
+    <div style="display:grid;gap:10px">
+      <button class="btn block" id="tRata" style="flex-direction:column;align-items:flex-start;text-align:left"><span>🚗 Rata di un finanziamento</span><span class="muted" style="font-weight:400;font-size:13px">Auto, prestito: importo fisso e rate residue, con il debito che scende a ogni rata</span></button>
+      <button class="btn block" id="tCarta" style="flex-direction:column;align-items:flex-start;text-align:left"><span>💳 Saldo della carta di credito</span><span class="muted" style="font-weight:400;font-size:13px">L'importo lo calcola l'app dalle spese fino al giorno di chiusura</span></button>
+      <button class="btn block" id="tFisso" style="flex-direction:column;align-items:flex-start;text-align:left"><span>🔁 Movimento fisso</span><span class="muted" style="font-weight:400;font-size:13px">Affitto, abbonamenti, stipendio, bonifici ricorrenti</span></button>
+      <button class="btn block" id="tAnn">Annulla</button>
+    </div>`, s => {
+    s.querySelector('#tRata').onclick = () => formRicorrente('RATA');
+    s.querySelector('#tCarta').onclick = () => formRicorrente('CARTA');
+    s.querySelector('#tFisso').onclick = () => formRicorrente('FISSO');
+    s.querySelector('#tAnn').onclick = chiudiSheet;
+  });
+}
+
+function formRicorrente(t, r) {
+  if (r) t = r.tipo === 'SALDO_CARTA' ? 'CARTA' : 'FISSO';
+  const titoli = { RATA: 'Rata di un finanziamento', CARTA: 'Saldo carta di credito', FISSO: 'Movimento fisso' };
+  const contoBanca = (contiAttivi(PATR).find(c => c.codice === '2.1.01') || contiAttivi(PATR)[0] || {}).codice;
+  const carte = contiAttivi(['PAS']);
+  let corpo = `<label class="f">Nome</label><input id="fNome" value="${esc(r ? r.nome : (t === 'RATA' ? 'Rata auto' : t === 'CARTA' ? 'Saldo ' + ((carte.find(c => /carta/i.test(c.nome)) || {}).nome || 'carta di credito') : ''))}" placeholder="es. Affitto, Netflix, Stipendio">`;
+  if (t === 'RATA') corpo += `
+    <label class="f">Importo della rata</label><input id="fImp" inputmode="decimal" placeholder="es. 250,00">
+    <label class="f">Rate ancora da pagare (compresa la prossima)</label><input id="fRes" inputmode="numeric" placeholder="es. 36">
+    <label class="f">Data della prossima rata</label><input type="date" id="fData" value="${prossimoGiorno(new Date().getDate())}">
+    <label class="f">Da quale conto esce</label><select id="fAvere">${opzioniConti(PATR, contoBanca)}</select>
+    <label class="check"><input type="checkbox" id="fDeb" checked> Crea il debito residuo tra le Passività (rata × rate residue)</label>
+    <div id="fDebBox"><label class="f">Nome del debito</label><input id="fDebNome" placeholder="es. Finanziamento auto"></div>
+    <div id="fVersoBox" style="display:none"><label class="f">Verso quale conto</label><select id="fDare">${opzioniConti(['PAS', 'COS'], '')}</select></div>
+    <div class="hint">Ogni rata confermata è un Trasferimento conto → debito: il debito scende fino a zero all'ultima rata. Il debito comprende anche gli interessi futuri, quindi è una stima prudente. Il calo di valore dell'auto è un'altra cosa: si gestisce nel foglio Ammortamenti.</div>`;
+  else if (t === 'CARTA') corpo += `
+    <label class="f">Carta di credito</label><select id="fDare">${opzioniConti(['PAS'], r ? r.dare : (carte.find(c => /carta/i.test(c.nome)) || {}).codice)}</select>
+    <label class="f">Da quale conto viene addebitata</label><select id="fAvere">${opzioniConti(PATR, r ? r.avere : contoBanca)}</select>
+    <div class="grid2">
+      <div><label class="f">Giorno di chiusura</label><input id="fChius" inputmode="numeric" value="${r ? r.chiusura : 15}"></div>
+      <div><label class="f">Giorno di addebito</label><input id="fGiorno" inputmode="numeric" value="${r ? r.giorno : 5}"></div>
+    </div>
+    ${r ? `<label class="f">Prossimo addebito</label><input type="date" id="fData" value="${esc(r.prossima)}">` : ''}
+    <div class="hint">Il giorno dell'addebito l'app somma le spese registrate sulla carta fino al giorno di chiusura del mese prima (es. fino al 15 ottobre per l'addebito del 5 novembre) e ti propone il trasferimento dal conto. Registra le spese con la carta come Uscite dalla carta.</div>`;
+  else corpo += `
+    <label class="f">Importo</label><input id="fImp" inputmode="decimal" value="${r ? String(r.importo).replace('.', ',') : ''}" placeholder="es. 15,99">
+    <label class="f">Da (conto che paga, o ricavo per un'entrata)</label><select id="fAvere">${opzioniConti(null, r ? r.avere : contoBanca)}</select>
+    <label class="f">A (categoria di costo, o conto che riceve)</label><select id="fDare">${opzioniConti(null, r ? r.dare : '')}</select>
+    <label class="f">Prossima scadenza</label><input type="date" id="fData" value="${r ? esc(r.prossima) : prossimoGiorno(new Date().getDate())}">
+    <div class="grid2">
+      <div><label class="f">Ogni quanti mesi</label><input id="fMesi" inputmode="numeric" value="${r ? r.mesi : 1}"></div>
+      <div><label class="f">Volte residue</label><input id="fRes" inputmode="numeric" value="${r && r.residue !== null ? r.residue : ''}" placeholder="vuoto = senza fine"></div>
+    </div>
+    <div class="hint">Spesa fissa: Da = conto corrente, A = categoria di costo. Entrata fissa (stipendio): Da = conto di ricavo, A = conto corrente.</div>`;
+  if (r) corpo += `<label class="check"><input type="checkbox" id="fAtt" ${r.attivo ? 'checked' : ''}> Attivo</label>`;
+  apriSheet(`<h3>${titoli[t]}</h3>${corpo}
+    <div class="grid2" style="margin-top:16px"><button class="btn" id="fAnn">Annulla</button><button class="btn primary" id="fOk">Salva</button></div>
+    ${r ? '<button class="btn block danger" id="fDel" style="margin-top:10px">🗑 Elimina regola</button><p class="muted" style="font-size:12.5px">Eliminare la regola non cancella i movimenti già registrati.</p>' : ''}`, s => {
+    const q = id => s.querySelector(id);
+    if (q('#fDeb')) q('#fDeb').onchange = e => { q('#fDebBox').style.display = e.target.checked ? '' : 'none'; q('#fVersoBox').style.display = e.target.checked ? 'none' : ''; };
+    q('#fAnn').onclick = chiudiSheet;
+    if (q('#fDel')) q('#fDel').onclick = () => { if (confirm('Eliminare la regola "' + r.nome + '"?')) azioneConto('eliminaRicorrente', { id: r.id }, 'Eliminato'); };
+    q('#fOk').onclick = () => {
+      const d = { nome: q('#fNome').value, avere: q('#fAvere').value };
+      if (r) { d.id = r.id; d.attivo = q('#fAtt').checked; }
+      if (t === 'CARTA') {
+        d.tipo = 'SALDO_CARTA'; d.dare = q('#fDare').value; d.chiusura = q('#fChius').value; d.giorno = q('#fGiorno').value; d.mesi = 1;
+        d.prossima = q('#fData') ? q('#fData').value : prossimoGiorno(+d.giorno || 5);
+      } else {
+        d.tipo = 'FISSO'; d.importo = q('#fImp').value; d.prossima = q('#fData').value; d.residue = q('#fRes').value;
+        d.mesi = q('#fMesi') ? q('#fMesi').value : 1;
+        d.giorno = d.prossima ? +d.prossima.split('-')[2] : 1;
+        if (t === 'RATA' && q('#fDeb').checked) { d.creaDebito = true; d.nomeDebito = q('#fDebNome').value || ('Finanziamento ' + d.nome); }
+        else d.dare = q('#fDare').value;
+      }
+      azioneConto('salvaRicorrente', d, 'Salvato');
+    };
+  });
 }
 
 /* ═════════════ Bottom sheet ═════════════ */
