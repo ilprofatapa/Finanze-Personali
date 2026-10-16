@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14213d">
+<title>Finanze</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root {
+  --bg: #f4f2ec; --card: #ffffff; --ink: #14213d; --muted: #6b7083; --line: #e3e0d6;
+  --accent: #b8891a; --accent-soft: #f6ecd2;
+  --blu: #1f4fd1; --verde: #1b8a4c; --rosso: #c4372b; --giallo-bg: #fff6dc; --giallo: #8a6100;
+  --radius: 16px; --nav-h: 66px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1424; --card: #18203a; --ink: #eef0f6; --muted: #9aa1b8; --line: #2a3352;
+    --accent: #e0b545; --accent-soft: #2d2a1c;
+    --blu: #7ea2ff; --verde: #4cc985; --rosso: #ff7b6e; --giallo-bg: #2e2812; --giallo: #f0c35a;
+  }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+body { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 12px); }
+header.top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between;
+  padding: calc(10px + env(safe-area-inset-top)) 16px 10px; background: var(--bg); border-bottom: 1px solid var(--line); }
+header.top h1 { margin: 0; font-size: 19px; letter-spacing: .2px; }
+header.top h1 span { color: var(--accent); }
+.icon-btn { background: none; border: 0; color: var(--ink); font-size: 20px; padding: 6px 8px; border-radius: 10px; cursor: pointer; }
+main { padding: 14px 16px; max-width: 640px; margin: 0 auto; }
+h2 { font-size: 17px; margin: 22px 0 10px; }
+h3 { font-size: 15px; margin: 16px 0 8px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+.hero { background: var(--ink); color: #fff; border: 0; }
+@media (prefers-color-scheme: dark) { .hero { background: #233163; } }
+.hero .lbl { opacity: .75; font-size: 13px; }
+.hero .big { font-size: 30px; font-weight: 700; margin: 2px 0 6px; letter-spacing: -.3px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.kpi .lbl { color: var(--muted); font-size: 12.5px; }
+.kpi .val { font-size: 18px; font-weight: 650; margin-top: 2px; }
+.verde { color: var(--verde); } .rosso { color: var(--rosso); } .blu { color: var(--blu); } .muted { color: var(--muted); }
+.azioni { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 6px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  border-radius: 12px; padding: 12px 14px; font: inherit; font-weight: 600; cursor: pointer; text-align: center; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #1b1404; }
+.btn.blu { background: var(--blu); border-color: var(--blu); color: #fff; }
+.btn.danger { color: var(--rosso); }
+.btn.big { padding: 16px; font-size: 16px; }
+.btn.small { padding: 7px 10px; font-size: 13px; border-radius: 10px; }
+.btn.block { width: 100%; }
+.btn:disabled { opacity: .55; }
+.row { display: flex; align-items: center; gap: 10px; }
+.row.between { justify-content: space-between; }
+.list .item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 2px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.list .item:last-child { border-bottom: 0; }
+.item .t { font-weight: 600; } .item .s { color: var(--muted); font-size: 12.5px; }
+.item .imp { font-weight: 650; white-space: nowrap; }
+label.f { display: block; font-weight: 600; font-size: 13.5px; margin: 14px 0 5px; }
+input, select, textarea { width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--card); color: var(--ink); font: inherit; }
+textarea { resize: vertical; min-height: 70px; }
+.hint { background: var(--accent-soft); border-radius: 10px; padding: 8px 10px; margin-top: 6px; font-size: 13px; line-height: 1.45; }
+.hint b { display: block; margin-bottom: 2px; }
+.warn { background: var(--giallo-bg); color: var(--ink); border-left: 4px solid var(--giallo); border-radius: 10px; padding: 10px 12px; margin-top: 12px; font-size: 14px; }
+.err { background: rgba(196,55,43,.1); border-left: 4px solid var(--rosso); border-radius: 10px; padding: 10px 12px; margin-top: 12px; font-size: 14px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 999px; padding: 8px 13px; font: inherit; font-size: 14px; cursor: pointer; }
+.chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--line); padding: 4px; border-radius: 13px; }
+.seg button { border: 0; background: transparent; color: var(--ink); padding: 9px 2px; border-radius: 10px; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.seg button.on { background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.riga-sc { display: grid; grid-template-columns: 1fr 78px 92px 34px; gap: 6px; margin-bottom: 6px; }
+.riga-sc select, .riga-sc input { padding: 9px 8px; font-size: 14px; }
+.tot { font-size: 13.5px; margin-top: 6px; }
+nav.bottom { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; height: calc(var(--nav-h) + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
+  background: var(--card); border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; }
+nav.bottom button { background: none; border: 0; color: var(--muted); font: inherit; font-size: 11.5px; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; }
+nav.bottom button .ic { font-size: 21px; line-height: 1; }
+nav.bottom button.on { color: var(--ink); font-weight: 700; }
+nav.bottom button.plus .ic { width: 50px; height: 50px; border-radius: 50%; background: var(--accent); color: #1b1404; display: flex; align-items: center; justify-content: center; font-size: 28px; margin-top: -22px; box-shadow: 0 4px 12px rgba(0,0,0,.18); }
+.tree .nodo { display: flex; align-items: center; gap: 8px; padding: 9px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.tree .nodo .n { flex: 1; min-width: 0; }
+.tree .nodo .n .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tree .cartella > .n .t { font-weight: 700; }
+.tree .nascosto { opacity: .45; }
+.tree .car { width: 18px; color: var(--muted); text-align: center; }
+.sez-title { display: flex; justify-content: space-between; align-items: baseline; margin: 18px 0 4px; font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+#sheetWrap { position: fixed; inset: 0; z-index: 20; background: rgba(10,14,28,.45); display: none; align-items: flex-end; justify-content: center; }
+#sheetWrap.on { display: flex; }
+#sheet { background: var(--bg); width: 100%; max-width: 640px; max-height: 88vh; overflow: auto; border-radius: 20px 20px 0 0; padding: 18px 16px calc(22px + env(safe-area-inset-bottom)); }
+#sheet h3 { margin-top: 0; }
+#overlay { position: fixed; inset: 0; z-index: 30; display: none; align-items: center; justify-content: center; background: rgba(10,14,28,.55); color: #fff; flex-direction: column; gap: 14px; font-weight: 600; text-align: center; padding: 20px; }
+#overlay.on { display: flex; }
+.spinner { width: 38px; height: 38px; border: 4px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: gira 0.9s linear infinite; }
+@keyframes gira { to { transform: rotate(360deg); } }
+#toast { position: fixed; left: 50%; bottom: calc(var(--nav-h) + 20px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 40; background: var(--ink); color: var(--bg);
+  padding: 10px 16px; border-radius: 12px; font-weight: 600; font-size: 14px; display: none; max-width: 90vw; text-align: center; }
+.chat { display: flex; flex-direction: column; gap: 10px; }
+.msg { max-width: 88%; padding: 10px 13px; border-radius: 15px; white-space: normal; }
+.msg.u { align-self: flex-end; background: var(--ink); color: var(--bg); border-bottom-right-radius: 4px; }
+.msg.a { align-self: flex-start; background: var(--card); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+.msg ul { margin: 4px 0; padding-left: 18px; }
+.chat-input { position: sticky; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom)); background: var(--bg); padding: 10px 0 4px; display: flex; gap: 8px; }
+.chat-input textarea { min-height: 46px; max-height: 140px; }
+.badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--line); color: var(--ink); }
+.badge.alta { background: rgba(27,138,76,.15); color: var(--verde); }
+.badge.media { background: var(--giallo-bg); color: var(--giallo); }
+.badge.bassa { background: rgba(196,55,43,.12); color: var(--rosso); }
+table.t { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table.t td { padding: 6px 2px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.t td.num { text-align: right; white-space: nowrap; }
+.sep { height: 1px; background: var(--line); margin: 14px 0; }
+.check { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-size: 14px; }
+.check input { width: 20px; height: 20px; }
+.vuoto { text-align: center; color: var(--muted); padding: 24px 10px; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1>Finanze<span>.</span></h1>
+  <div class="row">
+    <button class="icon-btn" id="btnRefresh" title="Aggiorna" aria-label="Aggiorna">⟳</button>
+    <button class="icon-btn" id="btnSettings" title="Impostazioni" aria-label="Impostazioni">⚙︎</button>
+  </div>
+</header>
+
+<main id="main"></main>
+
+<nav class="bottom" id="nav">
+  <button data-v="home"><span class="ic">⌂</span>Home</button>
+  <button data-v="registro"><span class="ic">☰</span>Registro</button>
+  <button data-v="nuovo" class="plus" aria-label="Nuovo movimento"><span class="ic">+</span></button>
+  <button data-v="conti"><span class="ic">▤</span>Conti</button>
+  <button data-v="assistente"><span class="ic">✦</span>Assistente</button>
+</nav>
+
+<div id="sheetWrap"><div id="sheet"></div></div>
+<div id="overlay"><div class="spinner"></div><div id="overlayMsg">Attendere…</div></div>
+<div id="toast"></div>
+<input type="file" id="fileFoto" accept="image/*" hidden>
+
+<script>
+/* ═════════════ Stato e utilità ═════════════ */
+const LS = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+};
+const CFG = { url: LS.get('fin_url') || '', token: LS.get('fin_token') || '' };
+let D = null;                 // dati dall'app (datiApp)
+let VISTA = 'home';
+let MAPPA = {};               // codice -> conto
+let F = null;                 // stato del modulo Nuovo (creato all'avvio)
+let PROPOSTE = [];            // proposte dall'AI
+let CHAT = [];                // messaggi assistente
+let CTX = '';                 // contesto per l'assistente
+let MOSTRA_NASCOSTI = false;
+const CHIUSE = new Set();     // cartelle chiuse nell'albero
+const TIPI = ['Uscita', 'Entrata', 'Trasferimento', 'Altro'];
+const PATR = ['ATT+', 'ATT-', 'PAS'];
+const REGOLE = {
+  Entrata:       { l1: 'Conto di ricavo',        s1: ['RIC'], l2: 'Dove arrivano i soldi',     s2: PATR },
+  Uscita:        { l1: 'Da dove escono i soldi', s1: PATR,    l2: 'Categoria di spesa',        s2: ['COS'] },
+  Trasferimento: { l1: 'Da (conto di origine)',  s1: PATR,    l2: 'A (conto di destinazione)', s2: PATR }
+};
+const NOMI_SEZ = { 'ATT+': 'Attività produttive', 'ATT-': 'Attività', 'PAS': 'Passività', 'PN': 'Patrimonio netto', 'RIC': 'Ricavi', 'COS': 'Costi' };
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const eur = n => (Number(n) || 0).toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
+const oggiISO = (off = 0) => { const d = new Date(); d.setDate(d.getDate() - off); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const dataIT = iso => { if (!iso) return ''; const [y, m, d] = iso.split('-'); return d + '/' + m + '/' + y; };
+function num(s) { s = String(s == null ? '' : s).trim().replace(/\s|€/g, ''); if (s.indexOf(',') >= 0) s = s.replace(/\./g, '').replace(',', '.'); const n = parseFloat(s); return isNaN(n) ? 0 : Math.round(n * 100) / 100; }
+function cmpCod(a, b) { const pa = a.split('.'), pb = b.split('.'); for (let i = 0; i < Math.max(pa.length, pb.length); i++) { const x = pa[i] === undefined ? -1 : +pa[i], y = pb[i] === undefined ? -1 : +pb[i]; if (x !== y) return x - y; } return 0; }
+function nuovoForm(tipo) { return { tipo: tipo || 'Uscita', data: oggiISO(), descrizione: '', importo: '', avere: '', dare: '', righe: [{ conto: '', lato: 'AVERE', imp: '' }, { conto: '', lato: 'DARE', imp: '' }], etichetta: '' }; }
+
+function toast(msg, ms = 2600) { const t = $('#toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', ms); }
+function attesa(on, msg) { $('#overlay').classList.toggle('on', !!on); if (msg) $('#overlayMsg').textContent = msg; }
+
+async function api(azione, dati = {}) {
+  if (!CFG.url || !CFG.token) throw new Error('Configura prima URL e token nelle impostazioni (⚙︎).');
+  let r;
+  try { r = await fetch(CFG.url, { method: 'POST', body: JSON.stringify({ token: CFG.token, azione, dati }) }); }
+  catch (e) { throw new Error('Connessione non riuscita: controlla internet e l’URL dello script.'); }
+  let j;
+  try { j = await r.json(); }
+  catch (e) { throw new Error('Risposta non valida: l’URL deve finire con /exec e il deployment deve essere accessibile a "Chiunque".'); }
+  if (!j.ok && !j.richiedeConferma) throw new Error(j.errore || 'Errore sconosciuto');
+  return j;
+}
+
+function impostaDati(d) {
+  D = d;
+  MAPPA = {};
+  (d.conti || []).forEach(c => MAPPA[c.codice] = c);
+  LS.set('fin_cache', JSON.stringify(d));
+  LS.set('fin_cache_ora', new Date().toISOString());
+}
+
+async function caricaDati(mostra = true) {
+  if (mostra) attesa(true, 'Carico i tuoi conti…');
+  try { impostaDati(await api('datiApp')); return true; }
+  catch (e) { if (mostra) toast(e.message, 4500); return false; }
+  finally { if (mostra) attesa(false); }
+}
+
+/* ═════════════ Conti: helper ═════════════ */
+function contiAttivi(sezioni) {
+  return D.conti.filter(c => c.attivo && c.tipo !== 'Cartella' && (!sezioni || sezioni.indexOf(c.sezione) >= 0));
+}
+function percorso(cod) { const n = []; let k = cod, g = 0; while (k && MAPPA[k] && g++ < 20) { n.unshift(MAPPA[k].nome); k = MAPPA[k].padre; } return n.join(' › '); }
+function figli(cod) { return D.conti.filter(c => c.padre === cod).sort((a, b) => cmpCod(a.codice, b.codice)); }
+function discendenti(cod) { const out = []; figli(cod).forEach(f => { out.push(f.codice); out.push(...discendenti(f.codice)); }); return out; }
+function opzioniConti(sezioni, sel) {
+  let h = '<option value="">— scegli —</option>', grp = null;
+  contiAttivi(sezioni).forEach(c => {
+    const g = MAPPA[c.padre] ? MAPPA[c.padre].nome : NOMI_SEZ[c.sezione];
+    if (g !== grp) { if (grp !== null) h += '</optgroup>'; grp = g; h += '<optgroup label="' + esc(g) + '">'; }
+    h += '<option value="' + esc(c.codice) + '"' + (c.codice === sel ? ' selected' : '') + '>' + esc(c.nome) + '</option>';
+  });
+  if (grp !== null) h += '</optgroup>';
+  return h;
+}
+function guida(k) { return D && D.guida ? D.guida[k] : null; }
+function hint(x) {
+  if (!x) return '';
+  return '<div class="hint"><b>' + esc(x.titolo) + '</b>' + esc(x.suggerimento) +
+    (x.esempio ? '<br>✅ ' + esc(x.esempio) : '') + (x.errore ? '<br>⚠️ ' + esc(x.errore) : '') + '</div>';
+}
+function riassuntoMovimento(m) {
+  const d = m.righe.filter(r => r.dare), a = m.righe.filter(r => r.avere);
+  return (a.map(r => r.nome).join(', ') || '?') + ' → ' + (d.map(r => r.nome).join(', ') || '?');
+}
+function coloreMovimento(m) {
+  if (m.righe.some(r => r.sezione === 'COS' && r.dare)) return 'rosso';
+  if (m.righe.some(r => r.sezione === 'RIC' && r.avere)) return 'verde';
+  return '';
+}
+
+/* ═════════════ Navigazione ═════════════ */
+function vai(v, push = true) {
+  VISTA = v;
+  if (push) history.pushState({ v }, '', '#' + v);
+  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  window.scrollTo(0, 0);
+  render();
+}
+window.addEventListener('popstate', e => {
+  if ($('#sheetWrap').classList.contains('on')) { chiudiSheet(); history.pushState({ v: VISTA }, '', '#' + VISTA); return; }
+  vai((e.state && e.state.v) || 'home', false);
+});
+
+function render() {
+  if (!CFG.url || !CFG.token) return vistaSetup();
+  if (!D) return ($('#main').innerHTML = '<div class="vuoto">Caricamento…</div>');
+  ({ home: vistaHome, nuovo: vistaNuovo, conti: vistaConti, registro: vistaRegistro, assistente: vistaAssistente,
+     proposte: vistaProposte, fiscale: vistaFiscale, impostazioni: vistaSetup }[VISTA] || vistaHome)();
+}
+
+/* ═════════════ Setup / impostazioni ═════════════ */
+function vistaSetup() {
+  $('#main').innerHTML = `
+    <h2>Collega l'app al tuo foglio</h2>
+    <div class="card">
+      <label class="f">URL dell'app web (finisce con /exec)</label>
+      <input id="sUrl" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(CFG.url)}" autocomplete="off">
+      <div class="hint">In Apps Script: <b>Esegui il deployment → Gestisci deployment</b>, copia "URL app web".</div>
+      <label class="f">Token API</label>
+      <input id="sTok" placeholder="xxxxxxxx-xxxx-…" value="${esc(CFG.token)}" autocomplete="off">
+      <div class="hint">Nel foglio: menu <b>💰 Finanze → Mostra token API</b>.</div>
+      <button class="btn primary block big" id="sSalva" style="margin-top:16px">Salva e collega</button>
+      <div id="sMsg"></div>
+    </div>
+    ${CFG.url ? '<button class="btn block danger" id="sEsci">Scollega questo telefono</button>' : ''}
+    <p class="muted" style="font-size:12.5px;margin-top:18px">URL e token restano solo su questo telefono. I tuoi dati vivono nel tuo Google Sheet.</p>`;
+  $('#sSalva').onclick = async () => {
+    CFG.url = $('#sUrl').value.trim(); CFG.token = $('#sTok').value.trim();
+    if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(CFG.url)) { $('#sMsg').innerHTML = '<div class="err">L’URL deve iniziare con https://script.google.com/ e finire con /exec</div>'; return; }
+    LS.set('fin_url', CFG.url); LS.set('fin_token', CFG.token);
+    attesa(true, 'Provo il collegamento…');
+    try { impostaDati(await api('datiApp')); attesa(false); toast('Collegato ✓'); vai('home'); }
+    catch (e) { attesa(false); $('#sMsg').innerHTML = '<div class="err">' + esc(e.message) + '</div>'; }
+  };
+  if ($('#sEsci')) $('#sEsci').onclick = () => {
+    if (!confirm('Scollegare il telefono? I dati nel foglio non vengono toccati.')) return;
+    ['fin_url', 'fin_token', 'fin_cache', 'fin_cache_ora'].forEach(k => LS.del(k));
+    CFG.url = ''; CFG.token = ''; D = null; render();
+  };
+}
+
+/* ═════════════ Home ═════════════ */
+function vistaHome() {
+  const r = D.riepilogo || {};
+  const ora = LS.get('fin_cache_ora');
+  $('#main').innerHTML = `
+    <div class="card hero">
+      <div class="lbl">Patrimonio netto</div>
+      <div class="big">${eur(r.patrimonioNetto)}</div>
+      <div class="lbl">Utile ${esc(r.anno)}: <b>${eur(r.utileAnno)}</b></div>
+    </div>
+    <div class="grid2">
+      <div class="card kpi"><div class="lbl">Liquidità disponibile</div><div class="val blu">${eur(r.liquidita)}</div></div>
+      <div class="card kpi"><div class="lbl">Indipendenza finanziaria</div><div class="val">${((r.indipendenza || 0) * 100).toFixed(1).replace('.', ',')}%</div></div>
+      <div class="card kpi"><div class="lbl">Ricavi da gennaio</div><div class="val verde">${eur(r.ricaviAnno)}</div></div>
+      <div class="card kpi"><div class="lbl">Costi da gennaio</div><div class="val rosso">${eur(r.costiAnno)}</div></div>
+    </div>
+    <div class="azioni">
+      <button class="btn primary big" id="hFoto">📷 Foto / screenshot</button>
+      <button class="btn big" id="hNuovo">✍️ Nuovo movimento</button>
+    </div>
+    ${D.aiAttiva ? '' : '<div class="warn">La lettura delle foto e l’assistente non sono ancora attivi: nel foglio usa <b>💰 Finanze → Imposta chiave Gemini</b>.</div>'}
+    <div class="row between"><h2>Ultimi movimenti</h2><button class="btn small" id="hFisc">🧾 Fiscale</button></div>
+    <div class="card list" id="hUltimi"></div>
+    <p class="muted" style="font-size:12px;text-align:center">${ora ? 'Aggiornato ' + new Date(ora).toLocaleString('it-IT') : ''}</p>`;
+  $('#hFoto').onclick = () => $('#fileFoto').click();
+  $('#hNuovo').onclick = () => vai('nuovo');
+  $('#hFisc').onclick = () => vai('fiscale');
+  listaMovimenti($('#hUltimi'), (D.ultimi || []).slice(0, 6));
+}
+
+function listaMovimenti(el, lista) {
+  if (!lista.length) { el.innerHTML = '<div class="vuoto">Ancora nessun movimento.<br>Inizia con un saldo iniziale dalla schermata Conti.</div>'; return; }
+  el.innerHTML = lista.map((m, i) => `
+    <div class="item" data-i="${i}">
+      <div style="min-width:0"><div class="t">${esc(m.descrizione)}</div><div class="s">${dataIT(m.data)} · ${esc(riassuntoMovimento(m))}</div></div>
+      <div class="imp ${coloreMovimento(m)}">${eur(m.importo)}</div>
+    </div>`).join('');
+  el.querySelectorAll('.item').forEach(it => it.onclick = () => dettaglioMovimento(lista[+it.dataset.i]));
+}
+
+function dettaglioMovimento(m) {
+  apriSheet(`
+    <h3>${esc(m.descrizione)}</h3>
+    <div class="muted">${dataIT(m.data)}${m.etichetta ? ' · 🏷 ' + esc(m.etichetta) : ''}${m.origine && m.origine !== 'MANUALE' ? ' · ' + esc(m.origine.toLowerCase()) : ''}</div>
+    <table class="t" style="margin-top:12px">
+      <tr><td class="muted">Conto</td><td class="num muted">Dare</td><td class="num muted">Avere</td></tr>
+      ${m.righe.map(r => `<tr><td>${esc(r.nome)}</td><td class="num">${r.dare ? eur(r.dare) : ''}</td><td class="num">${r.avere ? eur(r.avere) : ''}</td></tr>`).join('')}
+    </table>
+    <p class="muted" style="font-size:12.5px">Per correggerlo: spostalo nel cestino e registralo di nuovo.</p>
+    <div class="grid2" style="margin-top:14px">
+      <button class="btn danger" id="mCest">🗑 Sposta nel cestino</button>
+      <button class="btn" id="mChiudi">Chiudi</button>
+    </div>`, s => {
+    s.querySelector('#mChiudi').onclick = chiudiSheet;
+    s.querySelector('#mCest').onclick = async () => {
+      if (!confirm('Spostare questo movimento nel cestino?')) return;
+      attesa(true, 'Sposto nel cestino…');
+      try { await api('cestina', { id: m.id }); chiudiSheet(); await caricaDati(false); toast('Spostato nel cestino'); render(); }
+      catch (e) { toast(e.message, 4500); } finally { attesa(false); }
+    };
+  });
+}
+
+/* ═════════════ Nuovo movimento ═════════════ */
+function vistaNuovo() {
+  const altro = F.tipo === 'Altro';
+  const r = REGOLE[F.tipo];
+  $('#main').innerHTML = `
+    <h2>Nuovo movimento</h2>
+    <div class="seg" id="nTipi">${TIPI.map(t => `<button data-t="${t}" class="${t === F.tipo ? 'on' : ''}">${t}</button>`).join('')}</div>
+    ${hint(guida('tipo.' + F.tipo))}
+    <label class="f">Data</label>
+    <input type="date" id="nData" value="${esc(F.data)}">
+    <div class="chips" style="margin-top:6px">
+      <button class="chip" data-g="0">Oggi</button><button class="chip" data-g="1">Ieri</button><button class="chip" data-g="2">L'altro ieri</button>
+    </div>
+    <label class="f">Descrizione</label>
+    <input id="nDescr" value="${esc(F.descrizione)}" placeholder="Chi + cosa, es. Esselunga spesa">
+    ${altro ? `
+      <label class="f">Righe della scrittura</label>
+      <div id="nRighe"></div>
+      <button class="btn small" id="nAdd">+ Aggiungi riga</button>
+      <div class="tot" id="nTot"></div>
+    ` : `
+      <label class="f">Importo (€)</label>
+      <input id="nImp" inputmode="decimal" value="${esc(F.importo)}" placeholder="es. 64,50">
+      <label class="f">${esc(r.l1)}</label>
+      <select id="nAvere">${opzioniConti(r.s1, F.avere)}</select>
+      <div id="hAvere"></div>
+      <label class="f">${esc(r.l2)}</label>
+      <select id="nDare">${opzioniConti(r.s2, F.dare)}</select>
+      <div id="hDare"></div>
+    `}
+    <label class="f">Etichetta (facoltativa)</label>
+    <input id="nEt" value="${esc(F.etichetta)}" placeholder="Progetto, es. Vacanze 2027">
+    <div id="nMsg"></div>
+    <button class="btn primary block big" id="nSalva" style="margin-top:16px">Salva</button>
+    <div class="grid2" style="margin-top:10px">
+      <button class="btn" id="nFoto">📷 Da foto</button>
+      <button class="btn" id="nAiuto">✦ Ho un dubbio</button>
+    </div>
+    <h3>Casi frequenti</h3>
+    <div>${Object.keys(D.guida || {}).filter(k => k.indexOf('caso.') === 0).map(k => `<details class="card" style="padding:10px 12px"><summary><b>${esc(D.guida[k].titolo)}</b></summary>${hint(D.guida[k])}</details>`).join('')}</div>`;
+
+  document.querySelectorAll('#nTipi button').forEach(b => b.onclick = () => { leggiForm(); F.tipo = b.dataset.t; F.avere = ''; F.dare = ''; render(); });
+  document.querySelectorAll('.chips .chip[data-g]').forEach(b => b.onclick = () => { $('#nData').value = oggiISO(+b.dataset.g); });
+  if (altro) {
+    disegnaRighe();
+    $('#nAdd').onclick = () => { leggiForm(); F.righe.push({ conto: '', lato: 'DARE', imp: '' }); disegnaRighe(); };
+  } else {
+    const h = (sel, box) => { const c = MAPPA[$(sel).value]; $(box).innerHTML = c && c.suggerimento ? '<div class="hint">💡 ' + esc(c.suggerimento) + '</div>' : ''; };
+    $('#nAvere').onchange = () => h('#nAvere', '#hAvere');
+    $('#nDare').onchange = () => h('#nDare', '#hDare');
+    h('#nAvere', '#hAvere'); h('#nDare', '#hDare');
+  }
+  $('#nSalva').onclick = () => salvaForm(false);
+  $('#nFoto').onclick = () => $('#fileFoto').click();
+  $('#nAiuto').onclick = () => { leggiForm(); CTX = 'Sta compilando un movimento: ' + descriviForm(); vai('assistente'); };
+}
+
+function disegnaRighe() {
+  const el = $('#nRighe');
+  el.innerHTML = F.righe.map((r, i) => `
+    <div class="riga-sc" data-i="${i}">
+      <select class="rc">${opzioniConti(null, r.conto)}</select>
+      <select class="rl"><option value="DARE"${r.lato === 'DARE' ? ' selected' : ''}>Dare</option><option value="AVERE"${r.lato === 'AVERE' ? ' selected' : ''}>Avere</option></select>
+      <input class="ri" inputmode="decimal" placeholder="0,00" value="${esc(r.imp)}">
+      <button class="btn small rx" aria-label="Rimuovi">×</button>
+    </div>`).join('');
+  el.querySelectorAll('.riga-sc').forEach(div => {
+    const i = +div.dataset.i;
+    div.querySelector('.rx').onclick = () => { leggiForm(); F.righe.splice(i, 1); disegnaRighe(); };
+    div.querySelector('.ri').oninput = () => { leggiForm(); totRighe(); };
+    div.querySelector('.rl').onchange = () => { leggiForm(); totRighe(); };
+    div.querySelector('.rc').onchange = () => leggiForm();
+  });
+  totRighe();
+}
+
+function totRighe() {
+  let d = 0, a = 0;
+  F.righe.forEach(r => { const v = num(r.imp); if (r.lato === 'DARE') d += v; else a += v; });
+  d = Math.round(d * 100) / 100; a = Math.round(a * 100) / 100;
+  const ok = d === a && d > 0;
+  $('#nTot').innerHTML = 'Totale Dare <b>' + eur(d) + '</b> · Totale Avere <b>' + eur(a) + '</b><br>' +
+    (ok ? '<b class="verde">Dare = Avere · quadra ✓</b>' : '<b class="rosso">Non quadra: differenza ' + eur(Math.abs(d - a)) + '</b>');
+}
+
+function leggiForm() {
+  if (!$('#nData')) return;
+  F.data = $('#nData').value; F.descrizione = $('#nDescr').value; F.etichetta = $('#nEt').value;
+  if (F.tipo === 'Altro') {
+    document.querySelectorAll('#nRighe .riga-sc').forEach(div => {
+      const r = F.righe[+div.dataset.i]; if (!r) return;
+      r.conto = div.querySelector('.rc').value; r.lato = div.querySelector('.rl').value; r.imp = div.querySelector('.ri').value;
+    });
+  } else {
+    F.importo = $('#nImp').value; F.avere = $('#nAvere').value; F.dare = $('#nDare').value;
+  }
+}
+
+function descriviForm() {
+  const n = c => (MAPPA[c] ? MAPPA[c].nome + ' (' + c + ')' : 'non scelto');
+  if (F.tipo === 'Altro') return 'tipo Altro, data ' + F.data + ', descrizione "' + F.descrizione + '", righe: ' +
+    F.righe.map(r => n(r.conto) + ' ' + r.lato + ' ' + (r.imp || '0')).join('; ');
+  const r = REGOLE[F.tipo];
+  return 'tipo ' + F.tipo + ', data ' + F.data + ', descrizione "' + F.descrizione + '", importo ' + (F.importo || '?') +
+    ', ' + r.l1 + ': ' + n(F.avere) + ', ' + r.l2 + ': ' + n(F.dare);
+}
+
+/** Salva un movimento (dal modulo o da una proposta). Ritorna {ok, avvisi} */
+async function registra(m, forza) {
+  if (m.tipo === 'Altro') {
+    const righe = m.righe.map(r => ({ conto: r.conto, dare: r.lato === 'DARE' ? num(r.imp) : 0, avere: r.lato === 'AVERE' ? num(r.imp) : 0 }));
+    await api('registraScrittura', { data: m.data, descrizione: m.descrizione, etichetta: m.etichetta, righe, origine: m.origine || 'APP' });
+    return { ok: true };
+  }
+  const j = await api('registraSemplice', { tipo: m.tipo, data: m.data, descrizione: m.descrizione, importo: m.importo,
+    contoAvere: m.avere, contoDare: m.dare, etichetta: m.etichetta, forza: !!forza, origine: m.origine || 'APP' });
+  return j;
+}
+
+async function salvaForm(forza) {
+  leggiForm();
+  $('#nSalva').disabled = true;
+  attesa(true, 'Registro…');
+  try {
+    const j = await registra(F, forza);
+    if (j.richiedeConferma) {
+      $('#nMsg').innerHTML = '<div class="warn"><b>Controlla prima di salvare:</b><br>' + j.avvisi.map(esc).join('<br><br>') +
+        '<div class="grid2" style="margin-top:10px"><button class="btn small" id="nForza">È giusto, salva</button><button class="btn small" id="nChiedi">✦ Chiedi</button></div></div>';
+      $('#nForza').onclick = () => salvaForm(true);
+      $('#nChiedi').onclick = () => { CTX = 'Movimento in compilazione: ' + descriviForm() + '. Avvisi dell’app: ' + j.avvisi.join(' '); vai('assistente'); };
+      return;
+    }
+    const tipo = F.tipo, data = F.data;
+    F = nuovoForm(tipo); F.data = data;
+    await caricaDati(false);
+    toast('Registrato ✓');
+    render();
+  } catch (e) {
+    $('#nMsg').innerHTML = '<div class="err">' + esc(e.message) + '</div>';
+  } finally {
+    attesa(false);
+    if ($('#nSalva')) $('#nSalva').disabled = false;
+  }
+}
+
+/* ═════════════ Foto / screenshot ═════════════ */
+$('#fileFoto').onchange = async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  if (!D.aiAttiva) { toast('Prima imposta la chiave Gemini dal menu del foglio.', 4500); return; }
+  attesa(true, 'Leggo il documento…');
+  try {
+    const b64 = await comprimi(file);
+    const j = await api('analizzaImmagine', { immagine: b64, mimeType: 'image/jpeg' });
+    PROPOSTE = (j.movimenti || []).map(m => propostaInForm(m));
+    PROPOSTE.messaggio = j.messaggio || '';
+    vai('proposte');
+  } catch (err) { toast(err.message, 5000); }
+  finally { attesa(false); }
+};
+
+function comprimi(file) {
+  return new Promise((res, rej) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const max = 1600, k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      res(c.toDataURL('image/jpeg', 0.85).split(',')[1]);
+    };
+    img.onerror = () => rej(new Error('Immagine non leggibile.'));
+    img.src = url;
+  });
+}
+
+function propostaInForm(m) {
+  const f = nuovoForm(m.tipo);
+  f.data = m.data || oggiISO(); f.descrizione = m.descrizione || ''; f.origine = 'AI';
+  f.importo = m.importo ? String(m.importo).replace('.', ',') : '';
+  f.avere = m.contoAvere || ''; f.dare = m.contoDare || '';
+  if (m.tipo === 'Altro' && m.righe && m.righe.length) {
+    f.righe = m.righe.map(r => ({ conto: r.conto || '', lato: r.dare ? 'DARE' : 'AVERE', imp: String(r.dare || r.avere).replace('.', ',') }));
+  }
+  f.confidenza = m.confidenza; f.note = m.note; f.stato = 'da fare';
+  return f;
+}
+
+function vistaProposte() {
+  const n = c => MAPPA[c] ? esc(MAPPA[c].nome) : '<span class="rosso">da scegliere</span>';
+  $('#main').innerHTML = `
+    <h2>Cosa ho letto</h2>
+    ${PROPOSTE.messaggio ? '<div class="hint">' + esc(PROPOSTE.messaggio) + '</div>' : ''}
+    ${PROPOSTE.length ? '' : '<div class="vuoto">Nessun movimento riconosciuto. Prova con una foto più nitida o inseriscilo a mano.</div>'}
+    ${PROPOSTE.map((p, i) => `
+      <div class="card" data-i="${i}">
+        <div class="row between"><b>${esc(p.descrizione || '(senza descrizione)')}</b><span class="badge ${esc(p.confidenza)}">${esc(p.confidenza || '')}</span></div>
+        <div class="muted" style="font-size:13px;margin:4px 0 8px">${dataIT(p.data)} · ${esc(p.tipo)}</div>
+        ${p.tipo === 'Altro'
+          ? p.righe.map(r => `<div style="font-size:14px">${n(r.conto)} — ${r.lato === 'DARE' ? 'Dare' : 'Avere'} ${eur(num(r.imp))}</div>`).join('')
+          : `<div style="font-size:18px;font-weight:700">${eur(num(p.importo))}</div><div style="font-size:14px">${n(p.avere)} → ${n(p.dare)}</div>`}
+        ${p.note ? '<div class="hint">💡 ' + esc(p.note) + '</div>' : ''}
+        <div class="pMsg"></div>
+        ${p.stato === 'salvato' ? '<div class="verde" style="font-weight:700;margin-top:10px">Registrato ✓</div>' : `
+        <div class="grid2" style="margin-top:12px">
+          <button class="btn pMod">Modifica</button>
+          <button class="btn primary pSalva">Conferma</button>
+        </div>`}
+      </div>`).join('')}
+    <button class="btn block" id="pAltra" style="margin-top:6px">📷 Un'altra foto</button>`;
+  $('#pAltra').onclick = () => $('#fileFoto').click();
+  document.querySelectorAll('#main .card[data-i]').forEach(card => {
+    const p = PROPOSTE[+card.dataset.i];
+    const mod = card.querySelector('.pMod'), sal = card.querySelector('.pSalva');
+    if (mod) mod.onclick = () => { F = Object.assign(nuovoForm(), p); p.stato = 'in modifica'; vai('nuovo'); };
+    if (sal) sal.onclick = () => confermaProposta(p, card, false);
+  });
+}
+
+async function confermaProposta(p, card, forza) {
+  attesa(true, 'Registro…');
+  try {
+    const j = await registra(p, forza);
+    if (j.richiedeConferma) {
+      card.querySelector('.pMsg').innerHTML = '<div class="warn">' + j.avvisi.map(esc).join('<br><br>') +
+        '<button class="btn small" style="margin-top:8px">È giusto, salva</button></div>';
+      card.querySelector('.pMsg button').onclick = () => confermaProposta(p, card, true);
+      return;
+    }
+    p.stato = 'salvato';
+    await caricaDati(false);
+    toast('Registrato ✓');
+    render();
+  } catch (e) {
+    card.querySelector('.pMsg').innerHTML = '<div class="err">' + esc(e.message) + ' — usa "Modifica" per completare.</div>';
+  } finally { attesa(false); }
+}
+
+/* ═════════════ Conti ═════════════ */
+function vistaConti() {
+  const sezioni = ['ATT+', 'ATT-', 'PAS', 'PN', 'RIC', 'COS'];
+  $('#main').innerHTML = `
+    <div class="row between"><h2>Conti</h2><button class="btn small primary" id="cNuovo">+ Nuova voce</button></div>
+    <label class="check"><input type="checkbox" id="cNasc" ${MOSTRA_NASCOSTI ? 'checked' : ''}> Mostra voci nascoste</label>
+    <div class="tree" id="cAlbero"></div>
+    <p class="muted" style="font-size:12.5px;margin-top:16px">Tocca una voce per modificarla, aggiungere sottovoci, dare il saldo iniziale o aggiornarne il valore.</p>`;
+  const el = $('#cAlbero');
+  let html = '';
+  sezioni.forEach(sez => {
+    const radici = D.conti.filter(c => c.sezione === sez && !c.padre);
+    if (!radici.length) return;
+    const patr = PATR.indexOf(sez) >= 0;
+    const tot = radici.reduce((s, c) => s + (c.saldo || 0), 0);
+    html += `<div class="sez-title"><span>${esc(NOMI_SEZ[sez])}</span><span>${patr ? eur(tot) : ''}</span></div><div class="card" style="padding:4px 10px">`;
+    radici.forEach(r => html += nodo(r, 0));
+    html += '</div>';
+  });
+  el.innerHTML = html;
+  el.querySelectorAll('.nodo').forEach(n => {
+    n.onclick = e => {
+      const c = MAPPA[n.dataset.c];
+      if (e.target.classList.contains('car') && c.tipo === 'Cartella') { CHIUSE.has(c.codice) ? CHIUSE.delete(c.codice) : CHIUSE.add(c.codice); vistaConti(); return; }
+      schedaConto(c);
+    };
+  });
+  $('#cNasc').onchange = e => { MOSTRA_NASCOSTI = e.target.checked; vistaConti(); };
+  $('#cNuovo').onclick = () => formNuovaVoce('');
+}
+
+function nodo(c, liv) {
+  if (!c.attivo && !MOSTRA_NASCOSTI) return '';
+  const cart = c.tipo === 'Cartella';
+  const patr = PATR.indexOf(c.sezione) >= 0;
+  const chiusa = CHIUSE.has(c.codice);
+  let h = `<div class="nodo ${cart ? 'cartella' : ''} ${c.attivo ? '' : 'nascosto'}" data-c="${esc(c.codice)}" style="padding-left:${4 + liv * 16}px">
+    <span class="car">${cart ? (chiusa ? '▸' : '▾') : '·'}</span>
+    <div class="n"><div class="t">${esc(c.nome)}</div>${!c.attivo ? '<div class="s muted">nascosto</div>' : ''}</div>
+    <div class="imp ${c.saldo < 0 ? 'rosso' : ''}" style="font-size:14px">${patr && (c.saldo || !cart) ? eur(c.saldo) : ''}</div>
+  </div>`;
+  if (cart && !chiusa) figli(c.codice).forEach(f => h += nodo(f, liv + 1));
+  return h;
+}
+
+function schedaConto(c) {
+  const cart = c.tipo === 'Cartella';
+  const patr = PATR.indexOf(c.sezione) >= 0;
+  const sistema = (D.sistema || []).indexOf(c.codice) >= 0;
+  const haFigli = figli(c.codice).length > 0;
+  const eliminabile = !sistema && c.padre && !haFigli && !c.haMovimenti;
+  apriSheet(`
+    <h3>${esc(c.nome)}</h3>
+    <div class="muted" style="font-size:13px">${esc(percorso(c.codice))} · codice ${esc(c.codice)}</div>
+    ${patr ? `<div style="font-size:22px;font-weight:700;margin:10px 0">${eur(c.saldo)}</div>` : ''}
+    ${c.suggerimento ? '<div class="hint">💡 ' + esc(c.suggerimento) + '</div>' : ''}
+    ${sistema ? '<div class="hint">Voce di sistema: la usa l’app per le scritture automatiche.</div>' : ''}
+    <div style="display:grid;gap:8px;margin-top:14px">
+      <button class="btn block" id="kMod">✏️ Modifica / sposta</button>
+      ${cart ? '<button class="btn block" id="kAdd">➕ Aggiungi una voce qui dentro</button>' : ''}
+      ${patr && !cart ? '<button class="btn block" id="kSaldo">🏁 Saldo iniziale</button>' : ''}
+      ${patr && !cart ? `<button class="btn block" id="kAll">${c.mtm ? '📈 Aggiorna al valore di mercato' : '🔄 Riallinea al valore reale'}</button>` : ''}
+      ${c.padre && !sistema ? `<button class="btn block" id="kVis">${c.attivo ? '🙈 Nascondi' : '👁 Riattiva'}</button>` : ''}
+      ${eliminabile ? '<button class="btn block danger" id="kDel">🗑 Elimina</button>' : ''}
+      <button class="btn block" id="kChiudi">Chiudi</button>
+    </div>
+    ${!eliminabile && c.padre && !sistema ? `<p class="muted" style="font-size:12.5px">${haFigli ? 'Contiene altre voci: per eliminarla svuotala prima.' : 'Ha già movimenti: non si elimina per non rovinare lo storico, ma puoi nasconderla.'}</p>` : ''}`, s => {
+    s.querySelector('#kChiudi').onclick = chiudiSheet;
+    s.querySelector('#kMod').onclick = () => formModifica(c);
+    if (s.querySelector('#kAdd')) s.querySelector('#kAdd').onclick = () => formNuovaVoce(c.codice);
+    if (s.querySelector('#kSaldo')) s.querySelector('#kSaldo').onclick = () => formSaldoIniziale(c);
+    if (s.querySelector('#kAll')) s.querySelector('#kAll').onclick = () => formAllinea(c);
+    if (s.querySelector('#kVis')) s.querySelector('#kVis').onclick = () => azioneConto('modificaConto', { codice: c.codice, attivo: !c.attivo }, c.attivo ? 'Nascosto' : 'Riattivato');
+    if (s.querySelector('#kDel')) s.querySelector('#kDel').onclick = () => { if (confirm('Eliminare "' + c.nome + '"?')) azioneConto('eliminaConto', { codice: c.codice }, 'Eliminato'); };
+  });
+}
+
+async function azioneConto(azione, dati, ok) {
+  attesa(true, 'Salvo…');
+  try { await api(azione, dati); chiudiSheet(); await caricaDati(false); toast(ok + ' ✓'); render(); }
+  catch (e) { toast(e.message, 5000); }
+  finally { attesa(false); }
+}
+
+function opzioniRegimi(sel) { return (D.regimi || []).map(r => `<option value="${esc(r.codice)}"${r.codice === sel ? ' selected' : ''}>${esc(r.nome)}</option>`).join(''); }
+function opzioniCartelle(sezione, sel, escludi) {
+  return D.conti.filter(c => c.tipo === 'Cartella' && (!sezione || c.sezione === sezione) && (!escludi || escludi.indexOf(c.codice) < 0))
+    .map(c => `<option value="${esc(c.codice)}"${c.codice === sel ? ' selected' : ''}>${esc(percorso(c.codice))}</option>`).join('');
+}
+
+function formModifica(c) {
+  const patr = PATR.indexOf(c.sezione) >= 0, econ = c.sezione === 'RIC' || c.sezione === 'COS', cart = c.tipo === 'Cartella';
+  const sistema = (D.sistema || []).indexOf(c.codice) >= 0;
+  const esclusi = [c.codice].concat(discendenti(c.codice));
+  apriSheet(`
+    <h3>Modifica "${esc(c.nome)}"</h3>
+    <label class="f">Nome</label><input id="eNome" value="${esc(c.nome)}">
+    ${c.padre && !sistema ? `<label class="f">Si trova dentro</label><select id="ePadre">${opzioniCartelle(c.sezione, c.padre, esclusi)}</select>
+      <div class="hint">Si può spostare solo dentro la stessa sezione (${esc(NOMI_SEZ[c.sezione])}). I report si aggiornano anche per il passato.</div>` : ''}
+    ${econ && !cart ? `<label class="f">Regime fiscale</label><select id="eReg">${opzioniRegimi(c.regime)}</select>
+      <div class="hint">Decide come la voce entra nel riepilogo fiscale. Nel dubbio: "Nessun effetto fiscale".</div>` : ''}
+    ${patr ? `<label class="check"><input type="checkbox" id="eLiq" ${c.liquido ? 'checked' : ''}> Liquidità (soldi spendibili subito)</label>` : ''}
+    ${patr && !cart ? `<label class="check"><input type="checkbox" id="eMtm" ${c.mtm ? 'checked' : ''}> Ha un valore di mercato (azioni, ETF, crypto)</label>` : ''}
+    <label class="f">Suggerimento (cosa registrare qui)</label><textarea id="eSugg">${esc(c.suggerimento)}</textarea>
+    <div class="grid2" style="margin-top:16px"><button class="btn" id="eAnn">Annulla</button><button class="btn primary" id="eOk">Salva</button></div>`, s => {
+    s.querySelector('#eAnn').onclick = () => schedaConto(c);
+    s.querySelector('#eOk').onclick = () => {
+      const d = { codice: c.codice, nome: s.querySelector('#eNome').value, suggerimento: s.querySelector('#eSugg').value };
+      if (s.querySelector('#ePadre') && s.querySelector('#ePadre').value !== c.padre) d.padre = s.querySelector('#ePadre').value;
+      if (s.querySelector('#eReg')) d.regime = s.querySelector('#eReg').value;
+      if (s.querySelector('#eLiq')) d.liquido = s.querySelector('#eLiq').checked;
+      if (s.querySelector('#eMtm')) d.mtm = s.querySelector('#eMtm').checked;
+      azioneConto('modificaConto', d, 'Salvato');
+    };
+  });
+}
+
+function formNuovaVoce(padre) {
+  apriSheet(`
+    <h3>Nuova voce</h3>
+    <label class="f">Dentro quale cartella?</label>
+    <select id="vPadre"><option value="">— scegli —</option>${opzioniCartelle(null, padre)}</select>
+    <div class="hint">La cartella decide la sezione: un conto bancario va sotto Attività › Liquidità, una nuova spesa sotto Costi.</div>
+    <label class="f">Tipo</label>
+    <div class="seg" style="grid-template-columns:1fr 1fr" id="vTipo"><button data-t="Conto" class="on">Voce</button><button data-t="Cartella">Cartella (raggruppa voci)</button></div>
+    <label class="f">Nome</label><input id="vNome" placeholder="es. Sisal, Veterinario, Conto Fineco">
+    <div id="vExtra"></div>
+    <label class="f">Suggerimento (facoltativo)</label><textarea id="vSugg" placeholder="Cosa va registrato qui, per non sbagliare in futuro"></textarea>
+    <div class="grid2" style="margin-top:16px"><button class="btn" id="vAnn">Annulla</button><button class="btn primary" id="vOk">Crea</button></div>`, s => {
+    let tipo = 'Conto';
+    const extra = () => {
+      const p = MAPPA[s.querySelector('#vPadre').value];
+      const box = s.querySelector('#vExtra');
+      if (!p) { box.innerHTML = ''; return; }
+      const patr = PATR.indexOf(p.sezione) >= 0, econ = p.sezione === 'RIC' || p.sezione === 'COS';
+      let h = '';
+      if (econ && tipo === 'Conto') h += `<label class="f">Regime fiscale</label><select id="vReg">${opzioniRegimi('NESSUNO')}</select>`;
+      if (patr) h += `<label class="check"><input type="checkbox" id="vLiq" ${p.liquido ? 'checked' : ''}> Liquidità (soldi spendibili subito)</label>`;
+      if (patr && tipo === 'Conto') h += `
+        <label class="check"><input type="checkbox" id="vMtm"> Ha un valore di mercato (azioni, ETF, crypto)</label>
+        <label class="f">Saldo di oggi (facoltativo)</label><input id="vSaldo" inputmode="decimal" placeholder="es. 1.250,00${p.sezione === 'PAS' ? ' — quanto devi, in positivo' : ''}">
+        <label class="f">Quei soldi arrivano da un tuo conto già registrato?</label>
+        <select id="vOrig"><option value="">No, li avevo già (saldo iniziale)</option>${opzioniConti(PATR, '')}</select>
+        <div class="hint">"No" = lo dichiari come patrimonio che l’app non conosceva. Se invece li hai spostati da un altro tuo conto, sceglilo: sarà un giroconto.</div>
+        <label class="f">Da quando lo possiedi? (solo per il saldo iniziale)</label><input type="date" id="vData" value="${oggiISO()}">`;
+      box.innerHTML = h;
+    };
+    s.querySelectorAll('#vTipo button').forEach(b => b.onclick = () => { tipo = b.dataset.t; s.querySelectorAll('#vTipo button').forEach(x => x.classList.toggle('on', x === b)); extra(); });
+    s.querySelector('#vPadre').onchange = extra;
+    extra();
+    s.querySelector('#vAnn').onclick = chiudiSheet;
+    s.querySelector('#vOk').onclick = () => {
+      const q = id => s.querySelector(id);
+      const d = { padre: q('#vPadre').value, tipo, nome: q('#vNome').value, suggerimento: q('#vSugg').value };
+      if (q('#vReg')) d.regime = q('#vReg').value;
+      if (q('#vLiq')) d.liquido = q('#vLiq').checked;
+      if (q('#vMtm')) d.mtm = q('#vMtm').checked;
+      if (q('#vSaldo') && q('#vSaldo').value) { d.saldoIniziale = q('#vSaldo').value; d.contoOrigine = q('#vOrig').value; d.dataPossesso = q('#vData').value; }
+      azioneConto('aggiungiConto', d, 'Creato');
+    };
+  });
+}
+
+function formSaldoIniziale(c) {
+  apriSheet(`
+    <h3>Saldo iniziale · ${esc(c.nome)}</h3>
+    ${hint(guida('caso.saldo_iniziale'))}
+    <label class="f">Importo</label><input id="iImp" inputmode="decimal" placeholder="${c.sezione === 'PAS' ? 'quanto devi, in positivo' : 'es. 2.500,00'}">
+    <label class="f">Da quando lo possiedi?</label><input type="date" id="iData" value="${oggiISO()}">
+    <div class="grid2" style="margin-top:16px"><button class="btn" id="iAnn">Annulla</button><button class="btn primary" id="iOk">Registra</button></div>`, s => {
+    s.querySelector('#iAnn').onclick = () => schedaConto(c);
+    s.querySelector('#iOk').onclick = () => azioneConto('saldoIniziale', { codice: c.codice, importo: s.querySelector('#iImp').value, data: s.querySelector('#iData').value }, 'Saldo registrato');
+  });
+}
+
+function formAllinea(c) {
+  apriSheet(`
+    <h3>${c.mtm ? 'Valore di mercato' : 'Valore reale'} · ${esc(c.nome)}</h3>
+    <div class="muted">Saldo nell'app: <b>${eur(c.saldo)}</b></div>
+    <label class="f">${c.mtm ? 'Quanto vale oggi?' : 'Quanto c’è davvero oggi?'}</label>
+    <input id="aVal" inputmode="decimal" placeholder="${c.sezione === 'PAS' ? 'quanto devi, in positivo' : 'es. 12.500,00'}">
+    <label class="f">Come registro la differenza?</label>
+    <select id="aTipo">
+      <option value="RIVALUTAZIONE"${c.mtm ? ' selected' : ''}>Variazione di valore (plus/minus non realizzata)</option>
+      <option value="RETTIFICA"${c.mtm ? '' : ' selected'}>Movimenti che non ho registrato (rettifica del patrimonio)</option>
+    </select>
+    <div class="hint">Investimenti saliti o scesi → variazione di valore. Hai smesso di registrare per un po' e il saldo non torna → rettifica: il conto economico non viene toccato.</div>
+    <div class="grid2" style="margin-top:16px"><button class="btn" id="aAnn">Annulla</button><button class="btn primary" id="aOk">Registra</button></div>`, s => {
+    s.querySelector('#aAnn').onclick = () => schedaConto(c);
+    s.querySelector('#aOk').onclick = () => azioneConto('allinea', { codice: c.codice, valore: s.querySelector('#aVal').value, tipo: s.querySelector('#aTipo').value, data: oggiISO() }, 'Aggiornato');
+  });
+}
+
+/* ═════════════ Registro ═════════════ */
+function vistaRegistro() {
+  $('#main').innerHTML = `
+    <h2>Registro</h2>
+    <input id="rCerca" placeholder="Cerca per descrizione, conto o importo">
+    <div class="card list" id="rLista" style="margin-top:10px"></div>
+    <p class="muted" style="font-size:12.5px;text-align:center">Ultimi ${(D.ultimi || []).length} movimenti. Lo storico completo è nel foglio "Prima nota".</p>`;
+  const filtra = () => {
+    const q = $('#rCerca').value.trim().toLowerCase();
+    const l = (D.ultimi || []).filter(m => !q || (m.descrizione + ' ' + riassuntoMovimento(m) + ' ' + m.importo + ' ' + (m.etichetta || '')).toLowerCase().indexOf(q.replace(',', '.')) >= 0);
+    listaMovimenti($('#rLista'), l);
+  };
+  $('#rCerca').oninput = filtra;
+  filtra();
+}
+
+/* ═════════════ Fiscale ═════════════ */
+async function vistaFiscale() {
+  const anno = vistaFiscale.anno || new Date().getFullYear();
+  $('#main').innerHTML = `
+    <div class="row between"><h2>Fiscale</h2>
+      <select id="fAnno" style="width:auto">${[0, 1, 2].map(k => { const a = new Date().getFullYear() - k; return `<option${a === anno ? ' selected' : ''}>${a}</option>`; }).join('')}</select></div>
+    <div id="fBody"><div class="vuoto">Calcolo…</div></div>`;
+  $('#fAnno').onchange = e => { vistaFiscale.anno = +e.target.value; vistaFiscale(); };
+  try {
+    const r = await api('fiscale', { anno });
+    if (VISTA !== 'fiscale') return;
+    const g = r.gruppi.filter(x => x.ricavi || x.costi || x.usate);
+    $('#fBody').innerHTML = `
+      <div class="card hero"><div class="lbl">Imposte stimate ${r.anno}</div><div class="big">${eur(r.imposte)}</div>
+        <div class="lbl">Detrazioni stimate: <b>${eur(r.detrazioni)}</b> · Già accantonato: <b>${eur(r.accantonato)}</b></div></div>
+      ${g.length ? g.map(x => `
+        <div class="card"><b>${esc(x.gruppo)}</b>
+          <table class="t" style="margin-top:6px">
+            <tr><td>Ricavi / plusvalenze</td><td class="num">${eur(x.ricavi)}</td></tr>
+            <tr><td>Costi / minusvalenze</td><td class="num">${eur(x.costi)}</td></tr>
+            ${x.usate ? `<tr><td>Perdite anni precedenti usate</td><td class="num">${eur(x.usate)}</td></tr>` : ''}
+            <tr><td>Imponibile</td><td class="num">${eur(x.imponibile)}</td></tr>
+            <tr><td><b>Imposta stimata</b> (${Math.round(x.aliquota * 100)}%)</td><td class="num"><b>${eur(x.imposta)}</b></td></tr>
+          </table>
+          ${x.note ? '<div class="hint">' + esc(x.note) + '</div>' : ''}
+        </div>`).join('') : '<div class="vuoto">Nessun movimento con effetti fiscali in questo anno.</div>'}
+      <h3>Perdite da riportare</h3>
+      <div class="card">${r.perdite.length ? `<table class="t">${r.perdite.map(p => `<tr><td>${esc(p[0])}<div class="muted" style="font-size:12px">nate nel ${p[1]} · usabili fino al ${p[3]}</div></td><td class="num">${eur(p[2])}</td></tr>`).join('')}</table>` : '<span class="muted">Nessuna.</span>'}</div>
+      <div class="warn">Stima indicativa basata sul foglio "Regimi fiscali". Le regole segnate "da verificare" vanno confermate con il commercialista.</div>
+      <button class="btn block" id="fChiedi" style="margin-top:12px">✦ Chiedi all'assistente</button>`;
+    $('#fChiedi').onclick = () => { CTX = 'Sta guardando il riepilogo fiscale ' + r.anno + ': imposte stimate ' + r.imposte + ' €, detrazioni ' + r.detrazioni + ' €.'; vai('assistente'); };
+  } catch (e) { if ($('#fBody')) $('#fBody').innerHTML = '<div class="err">' + esc(e.message) + '</div>'; }
+}
+
+/* ═════════════ Assistente ═════════════ */
+function md(t) {
+  let h = esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>');
+  const righe = h.split('\n'); let out = '', inLista = false;
+  righe.forEach(r => {
+    const m = r.match(/^\s*(?:[-*•]|\d+[.)])\s+(.*)$/);
+    if (m) { if (!inLista) { out += '<ul>'; inLista = true; } out += '<li>' + m[1] + '</li>'; }
+    else { if (inLista) { out += '</ul>'; inLista = false; } out += r ? r + '<br>' : '<br>'; }
+  });
+  if (inLista) out += '</ul>';
+  return out.replace(/(<br>)+$/, '');
+}
+
+function vistaAssistente() {
+  const esempi = ['Come registro una ricarica su Betfair?', 'Ho venduto azioni in guadagno: come lo registro?', 'Come funzionano le tasse sulle crypto?', 'Che differenza c’è tra Uscita e Trasferimento?'];
+  $('#main').innerHTML = `
+    <h2>Assistente</h2>
+    ${D.aiAttiva ? '' : '<div class="warn">Assistente non attivo: nel foglio usa <b>💰 Finanze → Imposta chiave Gemini</b>.</div>'}
+    ${CTX ? `<div class="hint">📎 Contesto: ${esc(CTX)} <button class="btn small" id="aCtxX" style="margin-left:6px">togli</button></div>` : ''}
+    <div class="chat" id="aChat" style="margin-top:12px">
+      ${CHAT.length ? '' : `<div class="msg a">Ciao! Chiedimi come registrare un movimento, quale conto usare o come funziona una voce fiscale.</div>
+        <div class="chips">${esempi.map(e => `<button class="chip aEs">${esc(e)}</button>`).join('')}</div>`}
+      ${CHAT.map(m => `<div class="msg ${m.ruolo === 'utente' ? 'u' : 'a'}">${m.ruolo === 'utente' ? esc(m.testo) : md(m.testo)}</div>`).join('')}
+    </div>
+    <div class="chat-input">
+      <textarea id="aIn" placeholder="Scrivi la tua domanda…" rows="1"></textarea>
+      <button class="btn primary" id="aInvia" aria-label="Invia">➤</button>
+    </div>
+    ${CHAT.length ? '<button class="btn small" id="aNuova">Nuova conversazione</button>' : ''}`;
+  if ($('#aCtxX')) $('#aCtxX').onclick = () => { CTX = ''; vistaAssistente(); };
+  document.querySelectorAll('.aEs').forEach(b => b.onclick = () => invia(b.textContent));
+  $('#aInvia').onclick = () => invia($('#aIn').value);
+  if ($('#aNuova')) $('#aNuova').onclick = () => { CHAT = []; CTX = ''; vistaAssistente(); };
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
+async function invia(testo) {
+  testo = String(testo || '').trim();
+  if (!testo) return;
+  const storia = CHAT.slice();
+  CHAT.push({ ruolo: 'utente', testo });
+  vistaAssistente();
+  $('#aChat').insertAdjacentHTML('beforeend', '<div class="msg a muted" id="aPens">Sto pensando…</div>');
+  window.scrollTo(0, document.body.scrollHeight);
+  try {
+    const j = await api('assistente', { domanda: testo, storia, contesto: CTX || ('Schermata: ' + VISTA) });
+    CHAT.push({ ruolo: 'assistente', testo: j.risposta });
+  } catch (e) {
+    CHAT.push({ ruolo: 'assistente', testo: '⚠️ ' + e.message });
+  }
+  if (VISTA === 'assistente') vistaAssistente();
+}
+
+/* ═════════════ Bottom sheet ═════════════ */
+function apriSheet(html, monta) {
+  $('#sheet').innerHTML = html;
+  $('#sheetWrap').classList.add('on');
+  $('#sheet').scrollTop = 0;
+  if (monta) monta($('#sheet'));
+}
+function chiudiSheet() { $('#sheetWrap').classList.remove('on'); }
+$('#sheetWrap').onclick = e => { if (e.target.id === 'sheetWrap') chiudiSheet(); };
+
+/* ═════════════ Avvio ═════════════ */
+document.querySelectorAll('#nav button').forEach(b => b.onclick = () => {
+  if (b.dataset.v === 'nuovo' && VISTA !== 'nuovo') F = nuovoForm(F.tipo);
+  vai(b.dataset.v);
+});
+$('#btnSettings').onclick = () => vai('impostazioni');
+$('#btnRefresh').onclick = async () => { if (await caricaDati(true)) { toast('Aggiornato ✓'); render(); } };
+
+(async function avvio() {
+  F = nuovoForm();
+  const cache = LS.get('fin_cache');
+  if (cache) { try { impostaDati(JSON.parse(cache)); } catch (e) {} }
+  history.replaceState({ v: 'home' }, '', '#home');
+  vai('home', false);
+  if (CFG.url && CFG.token) { if (await caricaDati(!D)) render(); }
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
