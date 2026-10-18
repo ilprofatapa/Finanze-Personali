@@ -140,7 +140,7 @@ table.t td.num { text-align: right; white-space: nowrap; }
 <div id="sheetWrap"><div id="sheet"></div></div>
 <div id="overlay"><div class="spinner"></div><div id="overlayMsg">Attendere…</div></div>
 <div id="toast"></div>
-<input type="file" id="fileFoto" accept="image/*" hidden>
+<input type="file" id="fileFoto" accept="image/*" hidden> <input type="file" id="fileCam" accept="image/*" capture="environment" hidden>
 
 <script>
 /* ═════════════ Stato e utilità ═════════════ */
@@ -186,8 +186,12 @@ async function api(azione, dati = {}) {
   try { r = await fetch(CFG.url, { method: 'POST', body: JSON.stringify({ token: CFG.token, azione, dati }) }); }
   catch (e) { throw new Error('Connessione non riuscita: controlla internet e l’URL dello script.'); }
   let j;
-  try { j = await r.json(); }
-  catch (e) { throw new Error('Risposta non valida: l’URL deve finire con /exec e il deployment deve essere accessibile a "Chiunque".'); }
+   const testo = await r.text().catch(() => '');
+  try { j = JSON.parse(testo); }
+  catch (e) {
+    const pezzo = testo.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+    throw new Error('Risposta non valida dallo script (azione "' + azione + '", HTTP ' + r.status + '): ' + (pezzo || 'risposta vuota') + ' — controlla anche in Prima nota se il movimento è stato registrato prima di riprovare.');
+  }
   if (!j.ok && !j.richiedeConferma) throw new Error(j.errore || 'Errore sconosciuto');
   return j;
 }
@@ -325,7 +329,7 @@ function vistaHome() {
     <div class="row between"><h2>Ultimi movimenti</h2><div class="row"><button class="btn small" id="hRic">🔁 Ricorrenti</button><button class="btn small" id="hFisc">🧾 Fiscale</button></div></div>
     <div class="card list" id="hUltimi"></div>
     <p class="muted" style="font-size:12px;text-align:center">${ora ? 'Aggiornato ' + new Date(ora).toLocaleString('it-IT') : ''}</p>`;
-  $('#hFoto').onclick = () => $('#fileFoto').click();
+  $('#hFoto').onclick = () => sceltaFoto();
   $('#hNuovo').onclick = () => vai('nuovo');
   $('#hFisc').onclick = () => vai('fiscale');
   $('#hRic').onclick = () => vai('ricorrenti');
@@ -423,7 +427,7 @@ function vistaNuovo() {
     h('#nAvere', '#hAvere'); h('#nDare', '#hDare');
   }
   $('#nSalva').onclick = () => salvaForm(false);
-  $('#nFoto').onclick = () => $('#fileFoto').click();
+  $('#nFoto').onclick = () => sceltaFoto();
   $('#nAiuto').onclick = () => { leggiForm(); CTX = 'Sta compilando un movimento: ' + descriviForm(); vai('assistente'); };
 }
 
@@ -516,7 +520,7 @@ async function salvaForm(forza) {
 }
 
 /* ═════════════ Foto / screenshot ═════════════ */
-$('#fileFoto').onchange = async e => {
+$('#fileFoto').onchange = $('#fileCam').onchange = async e => {
   const file = e.target.files[0];
   e.target.value = '';
   if (!file) return;
@@ -532,7 +536,7 @@ $('#fileFoto').onchange = async e => {
   finally { attesa(false); }
 };
 
-function comprimi(file) {
+function sceltaFoto() {   apriSheet(`     <h2>Aggiungi da foto</h2>     <button class="btn block primary" id="fCam" style="margin-bottom:10px">📷 Scatta una foto</button>     <button class="btn block" id="fGal">🖼️ Scegli dalla galleria / screenshot</button>`, el => {     el.querySelector('#fCam').onclick = () => { chiudiSheet(); $('#fileCam').click(); };     el.querySelector('#fGal').onclick = () => { chiudiSheet(); $('#fileFoto').click(); };   }); }  function comprimi(file) {
   return new Promise((res, rej) => {
     const img = new Image(), url = URL.createObjectURL(file);
     img.onload = () => {
@@ -573,7 +577,7 @@ function vistaProposte() {
         <div class="muted" style="font-size:13px;margin:4px 0 8px">${dataIT(p.data)} · ${esc(p.tipo)}</div>
         ${p.tipo === 'Altro'
           ? p.righe.map(r => `<div style="font-size:14px">${n(r.conto)} — ${r.lato === 'DARE' ? 'Dare' : 'Avere'} ${eur(num(r.imp))}</div>`).join('')
-          : `<div style="font-size:18px;font-weight:700">${eur(num(p.importo))}</div><div style="font-size:14px">${n(p.avere)} → ${n(p.dare)}</div>`}
+          : `<div style="font-size:18px;font-weight:700">${eur(num(p.importo))}</div>${p.tipo === 'Uscita' && p.stato !== 'salvato'             ? `<label class="f">Pagato con</label><select class="pPag">${opzioniConti(PATR, p.avere)}</select><div style="font-size:14px;margin-top:6px">→ ${n(p.dare)}</div>`             : `<div style="font-size:14px">${n(p.avere)} → ${n(p.dare)}</div>`}`}
         ${p.note ? '<div class="hint">💡 ' + esc(p.note) + '</div>' : ''}
         <div class="pMsg"></div>
         ${p.stato === 'salvato' ? '<div class="verde" style="font-weight:700;margin-top:10px">Registrato ✓</div>' : `
@@ -583,12 +587,12 @@ function vistaProposte() {
         </div>`}
       </div>`).join('')}
     <button class="btn block" id="pAltra" style="margin-top:6px">📷 Un'altra foto</button>`;
-  $('#pAltra').onclick = () => $('#fileFoto').click();
+  $('#pAltra').onclick = () => sceltaFoto();
   document.querySelectorAll('#main .card[data-i]').forEach(card => {
     const p = PROPOSTE[+card.dataset.i];
     const mod = card.querySelector('.pMod'), sal = card.querySelector('.pSalva');
     if (mod) mod.onclick = () => { F = Object.assign(nuovoForm(), p); p.stato = 'in modifica'; vai('nuovo'); };
-    if (sal) sal.onclick = () => confermaProposta(p, card, false);
+    if (sal) sal.onclick = () => confermaProposta(p, card, false);     const pag = card.querySelector('.pPag');     if (pag) pag.onchange = () => { p.avere = pag.value; };
   });
 }
 
