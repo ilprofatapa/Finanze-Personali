@@ -296,7 +296,7 @@ function vistaSetup() {
 }
 
 /* ═════════════ Home ═════════════ */
-function vistaHome() {
+/* ═════════════ Ricavi e costi per periodo ═════════════ */ const PERIODI = { mese: 'Questo mese', scorso: 'Mese scorso', anno: 'Da gennaio', pers: 'Scegli le date…' }; let PER = null; function isoD(x) { return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); } function intervalloPer() {   const k = LS.get('fin_per') || 'mese', d = new Date(), y = d.getFullYear(), m = d.getMonth();   if (k === 'scorso') return [isoD(new Date(y, m - 1, 1)), isoD(new Date(y, m, 0))];   if (k === 'anno') return [isoD(new Date(y, 0, 1)), oggiISO()];   if (k === 'pers') return [LS.get('fin_per_dal') || isoD(new Date(y, m, 1)), LS.get('fin_per_al') || oggiISO()];   return [isoD(new Date(y, m, 1)), oggiISO()]; } async function caricaPeriodo() {   const [dal, al] = intervalloPer();   const chiave = dal + '|' + al + '|' + (LS.get('fin_cache_ora') || '');   if (PER && PER.chiave === chiave) return PER;   const j = await api('periodo', { dal, al });   j.chiave = chiave; PER = j;   return PER; } function montaCE() {   const k = LS.get('fin_per') || 'mese';   const mio = montaCE.n = (montaCE.n || 0) + 1;   $('#cePer').innerHTML = Object.keys(PERIODI).map(x => `<option value="${x}"${x === k ? ' selected' : ''}>${PERIODI[x]}</option>`).join('');   const [dal, al] = intervalloPer();   $('#ceDate').style.display = k === 'pers' ? 'grid' : 'none';   $('#ceDal').value = dal; $('#ceAl').value = al;   $('#cePer').onchange = () => { LS.set('fin_per', $('#cePer').value); montaCE(); };   $('#ceDal').onchange = $('#ceAl').onchange = () => { LS.set('fin_per_dal', $('#ceDal').value); LS.set('fin_per_al', $('#ceAl').value); montaCE(); };   $('#ceDati').className = 'muted';   $('#ceDati').innerHTML = 'Calcolo…';   caricaPeriodo().then(p => {     if (mio !== montaCE.n || !$('#ceDati')) return;     const voci = Object.keys(p.conti).filter(c => MAPPA[c] && MAPPA[c].sezione === 'COS' && MAPPA[c].tipo !== 'Cartella' && p.conti[c] > 0)       .sort((a, b) => p.conti[b] - p.conti[a]).slice(0, 5);     const max = voci.length ? p.conti[voci[0]] : 1;     $('#ceDati').className = '';     $('#ceDati').innerHTML = `       <div class="muted" style="font-size:12.5px">dal ${dataIT(p.dal)} al ${dataIT(p.al)}</div>       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px">         <div><div class="muted" style="font-size:12px">Ricavi</div><div class="verde" style="font-weight:700">${eur(p.ricavi)}</div></div>         <div><div class="muted" style="font-size:12px">Costi</div><div class="rosso" style="font-weight:700">${eur(p.costi)}</div></div>         <div><div class="muted" style="font-size:12px">Risultato</div><div class="${p.utile < 0 ? 'rosso' : 'verde'}" style="font-weight:700">${eur(p.utile)}</div></div>       </div>       ${voci.length ? '<div class="muted" style="font-size:12.5px;margin-top:12px">Dove sono andati i soldi</div>' + voci.map(c => `         <div style="margin-top:6px;font-size:13.5px"><div class="row between"><span>${esc(MAPPA[c].nome)}</span><span>${eur(p.conti[c])}</span></div>         <div style="height:4px;border-radius:2px;background:var(--rosso);opacity:.55;width:${Math.max(4, Math.round(p.conti[c] / max * 100))}%"></div></div>`).join('') : ''}`;   }).catch(e => { if (mio === montaCE.n && $('#ceDati')) $('#ceDati').innerHTML = '<div class="err">' + esc(e.message) + '</div>'; }); }  function vistaHome() {
   const r = D.riepilogo || {};
   const ora = LS.get('fin_cache_ora');
   $('#main').innerHTML = `
@@ -307,9 +307,12 @@ function vistaHome() {
     </div>
     <div class="grid2">
       <div class="card kpi"><div class="lbl">Liquidità disponibile</div><div class="val blu">${eur(r.liquidita)}</div></div>
-      <div class="card kpi"><div class="lbl">Indipendenza finanziaria</div><div class="val">${((r.indipendenza || 0) * 100).toFixed(1).replace('.', ',')}%</div></div>
-      <div class="card kpi"><div class="lbl">Ricavi da gennaio</div><div class="val verde">${eur(r.ricaviAnno)}</div></div>
-      <div class="card kpi"><div class="lbl">Costi da gennaio</div><div class="val rosso">${eur(r.costiAnno)}</div></div>
+           <div class="card kpi"><div class="lbl">Indipendenza finanziaria</div><div class="val">${((r.indipendenza || 0) * 100).toFixed(1).replace('.', ',')}%</div><div class="muted" style="font-size:11px">quota del patrimonio investita</div></div>
+    </div>
+    <div class="card" id="ceBox">
+      <div class="row between"><b>Ricavi e costi</b><select id="cePer" style="width:auto"></select></div>
+      <div id="ceDate" class="grid2" style="margin-top:8px;display:none"><input type="date" id="ceDal"><input type="date" id="ceAl"></div>
+      <div id="ceDati" class="muted" style="margin-top:10px">Calcolo…</div>
     </div>
     <div class="azioni">
       <button class="btn primary big" id="hFoto">📷 Foto / screenshot</button>
@@ -329,7 +332,7 @@ function vistaHome() {
     <div class="row between"><h2>Ultimi movimenti</h2><div class="row"><button class="btn small" id="hRic">🔁 Ricorrenti</button><button class="btn small" id="hFisc">🧾 Fiscale</button></div></div>
     <div class="card list" id="hUltimi"></div>
     <p class="muted" style="font-size:12px;text-align:center">${ora ? 'Aggiornato ' + new Date(ora).toLocaleString('it-IT') : ''}</p>`;
-  $('#hFoto').onclick = () => sceltaFoto();
+  $('#hFoto').onclick = () => sceltaFoto();   montaCE();
   $('#hNuovo').onclick = () => vai('nuovo');
   $('#hFisc').onclick = () => vai('fiscale');
   $('#hRic').onclick = () => vai('ricorrenti');
@@ -630,11 +633,11 @@ function vistaConti() {
     if (!radici.length) return;
     const patr = PATR.indexOf(sez) >= 0;
     const tot = radici.reduce((s, c) => s + (c.saldo || 0), 0);
-    html += `<div class="sez-title"><span>${esc(NOMI_SEZ[sez])}</span><span>${patr ? eur(tot) : ''}</span></div><div class="card" style="padding:4px 10px">`;
+    html += `<div class="sez-title"><span>${esc(NOMI_SEZ[sez])}</span><span>${patr ? eur(tot) : (PER && (sez === 'RIC' || sez === 'COS') ? eur(sez === 'RIC' ? PER.ricavi : PER.costi) : '')}</span></div><div class="card" style="padding:4px 10px">`;
     radici.forEach(r => html += nodo(r, 0));
     html += '</div>';
   });
-  el.innerHTML = html;
+  el.innerHTML = html + `<p class="muted" style="font-size:12.5px">Ricavi e costi: ${PER ? 'dal ' + dataIT(PER.dal) + ' al ' + dataIT(PER.al) + ' (periodo scelto in Home)' : 'calcolo…'}</p>`;   const usato = PER;   caricaPeriodo().then(p => { if (p !== usato && VISTA === 'conti') vistaConti(); }).catch(() => {});
   el.querySelectorAll('.nodo').forEach(n => {
     n.onclick = e => {
       const c = MAPPA[n.dataset.c];
@@ -654,7 +657,7 @@ function nodo(c, liv) {
   let h = `<div class="nodo ${cart ? 'cartella' : ''} ${c.attivo ? '' : 'nascosto'}" data-c="${esc(c.codice)}" style="padding-left:${4 + liv * 16}px">
     <span class="car">${cart ? (chiusa ? '▸' : '▾') : '·'}</span>
     <div class="n"><div class="t">${esc(c.nome)}</div>${!c.attivo ? '<div class="s muted">nascosto</div>' : ''}</div>
-    <div class="imp ${c.saldo < 0 ? 'rosso' : ''}" style="font-size:14px">${patr && (c.saldo || !cart) ? eur(c.saldo) : ''}</div>
+    <div class="imp ${c.saldo < 0 ? 'rosso' : ''}" style="font-size:14px">${patr ? (c.saldo || !cart ? eur(c.saldo) : '') : (PER && PER.conti[c.codice] ? eur(PER.conti[c.codice]) : '')}</div>
   </div>`;
   if (cart && !chiusa) figli(c.codice).forEach(f => h += nodo(f, liv + 1));
   return h;
