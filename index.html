@@ -432,7 +432,10 @@ function vistaNuovo() {
       <div id="hDare"></div>
     `}
     <label class="f">Etichetta (facoltativa)</label>
-    <input id="nEt" value="${esc(F.etichetta)}" placeholder="Progetto, es. Vacanze 2027">
+    <input id="nEt" value="${esc(F.etichetta)}" placeholder="es. Poker, Bratislava 2026" list="dlEt" autocomplete="off">
+    <datalist id="dlEt">${(D.etichette || []).map(e => `<option value="${esc(e)}">`).join('')}</datalist>
+    ${(D.etichette || []).length ? `<div class="chips" style="margin-top:6px">${D.etichette.slice(0, 8).map(e => `<button class="chip etq">${esc(e)}</button>`).join('')}</div>` : ''}
+    <div class="muted" style="font-size:12.5px;margin-top:4px">Più etichette separate da virgola. Nel Registro filtri per etichetta e vedi il risultato (es. di un viaggio).</div>
     <div id="nMsg"></div>
     <button class="btn primary block big" id="nSalva" style="margin-top:16px">Salva</button>
     <div class="grid2" style="margin-top:10px">
@@ -455,6 +458,11 @@ function vistaNuovo() {
     h('#nAvere', '#hAvere'); h('#nDare', '#hDare');
   }
   $('#nSalva').onclick = () => salvaForm(false);
+  document.querySelectorAll('.etq').forEach(b => b.onclick = () => {
+    const att = $('#nEt').value.split(',').map(x => x.trim()).filter(Boolean);
+    if (att.indexOf(b.textContent) < 0) att.push(b.textContent);
+    $('#nEt').value = att.join(', ');
+  });
   $('#nFoto').onclick = () => $('#fileFoto').click();
   $('#nAiuto').onclick = () => { leggiForm(); CTX = 'Sta compilando un movimento: ' + descriviForm(); vai('assistente'); };
 }
@@ -845,10 +853,24 @@ function formAllinea(c) {
 }
 
 /* ═════════════ Registro ═════════════ */
-const REG = { conto: '', testo: '', cestino: false };
+const REG = { conto: '', testo: '', cestino: false, periodo: 'tutto', dal: '', al: '', etichetta: '' };
+const PERIODI_REG = [['tutto', 'Sempre'], ['mese', 'Questo mese'], ['mesePrec', 'Mese scorso'], ['anno', 'Quest\'anno'], ['annoPrec', 'Anno scorso'], ['pers', 'Personalizzato']];
+
+function isoDi(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function intervalloReg() {
+  const o = new Date(), y = o.getFullYear(), m = o.getMonth();
+  switch (REG.periodo) {
+    case 'mese': return [isoDi(new Date(y, m, 1)), isoDi(new Date(y, m + 1, 0))];
+    case 'mesePrec': return [isoDi(new Date(y, m - 1, 1)), isoDi(new Date(y, m, 0))];
+    case 'anno': return [y + '-01-01', y + '-12-31'];
+    case 'annoPrec': return [(y - 1) + '-01-01', (y - 1) + '-12-31'];
+    case 'pers': return [REG.dal, REG.al];
+    default: return ['', ''];
+  }
+}
 
 function vistaRegistro() {
-  const c = REG.conto ? MAPPA[REG.conto] : null;
+  const etichette = D.etichette || [];
   $('#main').innerHTML = `
     <h2>${REG.cestino ? '🗑 Cestino' : 'Registro'}</h2>
     <div class="seg" style="grid-template-columns:1fr 1fr" id="rSeg">
@@ -856,27 +878,62 @@ function vistaRegistro() {
     </div>
     <label class="f">Conto</label>
     <select id="rConto"><option value="">Tutti i conti</option>${D.conti.filter(x => x.attivo || x.codice === REG.conto).map(x => `<option value="${esc(x.codice)}"${x.codice === REG.conto ? ' selected' : ''}>${esc(percorso(x.codice))}</option>`).join('')}</select>
-    ${c && PATR.indexOf(c.sezione) >= 0 ? `<div class="muted" style="margin-top:6px">Saldo attuale: <b>${eur(c.saldo)}</b></div>` : ''}
-    <input id="rCerca" placeholder="Cerca per descrizione, conto o importo" value="${esc(REG.testo)}" style="margin-top:10px">
+    <label class="f">Periodo</label>
+    <select id="rPer">${PERIODI_REG.map(p => `<option value="${p[0]}"${p[0] === REG.periodo ? ' selected' : ''}>${p[1]}</option>`).join('')}</select>
+    ${REG.periodo === 'pers' ? `<div class="grid2" style="margin-top:8px"><input type="date" id="rDal" value="${esc(REG.dal)}"><input type="date" id="rAl" value="${esc(REG.al)}"></div>` : ''}
+    ${etichette.length ? `<label class="f">Etichetta</label>
+    <select id="rEt"><option value="">Tutte</option>${etichette.map(e => `<option${e === REG.etichetta ? ' selected' : ''}>${esc(e)}</option>`).join('')}</select>` : ''}
+    <input id="rCerca" placeholder="Cerca per descrizione, conto o importo" value="${esc(REG.testo)}" style="margin-top:12px">
+    <div id="rRiep"></div>
     <div class="card list" id="rLista" style="margin-top:10px"><div class="vuoto">Carico…</div></div>
     <p class="muted" id="rInfo" style="font-size:12.5px;text-align:center"></p>`;
   document.querySelectorAll('#rSeg button').forEach(b => b.onclick = () => { REG.cestino = b.dataset.c === '1'; vistaRegistro(); });
   $('#rConto').onchange = e => { REG.conto = e.target.value; vistaRegistro(); };
+  $('#rPer').onchange = e => {
+    REG.periodo = e.target.value;
+    if (REG.periodo === 'pers' && !REG.dal) { const o = new Date(); REG.dal = isoDi(new Date(o.getFullYear(), o.getMonth(), 1)); REG.al = isoDi(o); }
+    vistaRegistro();
+  };
+  if ($('#rDal')) { $('#rDal').onchange = e => { REG.dal = e.target.value; caricaRegistro(); }; $('#rAl').onchange = e => { REG.al = e.target.value; caricaRegistro(); }; }
+  if ($('#rEt')) $('#rEt').onchange = e => { REG.etichetta = e.target.value; caricaRegistro(); };
   let t;
   $('#rCerca').oninput = e => { REG.testo = e.target.value; clearTimeout(t); t = setTimeout(caricaRegistro, 400); };
   caricaRegistro();
 }
 
+function riquadroRiepilogo(r) {
+  if (!r || REG.cestino) return '';
+  const riga = (l, v, cls) => `<tr><td>${l}</td><td class="num ${cls || ''}"><b>${eur(v)}</b></td></tr>`;
+  const c = REG.conto ? MAPPA[REG.conto] : null;
+  if (c && r.patrimoniale) {
+    const passiva = c.sezione === 'PAS';
+    return `<div class="card" style="margin-top:12px"><table class="t">
+      ${r.saldoIniziale != null && REG.periodo !== 'tutto' ? riga('Saldo all\'inizio del periodo', r.saldoIniziale) : ''}
+      ${riga(passiva ? 'Aumenti del debito' : 'Entrate (+)', r.entrate, passiva ? 'rosso' : 'verde')}
+      ${riga(passiva ? 'Rimborsi del debito' : 'Uscite (−)', r.uscite, passiva ? 'verde' : 'rosso')}
+      ${r.saldoFinale != null ? riga(REG.periodo === 'tutto' ? 'Saldo attuale' : 'Saldo alla fine del periodo', r.saldoFinale) : riga('Differenza', r.netto)}
+    </table></div>`;
+  }
+  if (c) return `<div class="card" style="margin-top:12px"><table class="t">${riga('Totale ' + (c.sezione === 'RIC' ? 'ricavi' : c.sezione === 'COS' ? 'costi' : '') + ' nel periodo', r.netto, c.sezione === 'RIC' ? 'verde' : c.sezione === 'COS' ? 'rosso' : '')}</table></div>`;
+  if (!r.ricavi && !r.costi) return '';
+  return `<div class="card" style="margin-top:12px"><table class="t">
+    ${riga('Ricavi', r.ricavi, 'verde')}${riga('Costi', r.costi, 'rosso')}
+    <tr><td><b>Risultato</b></td><td class="num ${r.risultato < 0 ? 'rosso' : 'verde'}"><b>${r.risultato > 0 ? '+' : ''}${eur(r.risultato)}</b></td></tr>
+  </table>${REG.etichetta ? '<div class="muted" style="font-size:12.5px;margin-top:6px">Conto economico dei movimenti con etichetta "' + esc(REG.etichetta) + '".</div>' : ''}</div>`;
+}
+
 async function caricaRegistro() {
   const richiesta = JSON.stringify(REG);
   caricaRegistro.ultima = richiesta;
+  const [dal, al] = intervalloReg();
   try {
-    const j = await api('movimenti', { conto: REG.conto, testo: REG.testo, cestino: REG.cestino, limite: 300 });
+    const j = await api('movimenti', { conto: REG.conto, testo: REG.testo, cestino: REG.cestino, etichetta: REG.etichetta, dal, al, limite: 300 });
     if (VISTA !== 'registro' || caricaRegistro.ultima !== richiesta) return;
     const lista = j.movimenti.map(m => Object.assign(m, { cestino: REG.cestino }));
+    $('#rRiep').innerHTML = riquadroRiepilogo(j.riepilogo);
     listaMovimenti($('#rLista'), lista);
     if (!lista.length) $('#rLista').innerHTML = '<div class="vuoto">' + (REG.cestino ? 'Il cestino è vuoto.' : 'Nessun movimento trovato.') + '</div>';
-    $('#rInfo').textContent = j.totale > lista.length ? 'Mostrati ' + lista.length + ' su ' + j.totale + ': restringi la ricerca.' : j.totale + (j.totale === 1 ? ' movimento' : ' movimenti');
+    $('#rInfo').textContent = j.totale > lista.length ? 'Mostrati ' + lista.length + ' su ' + j.totale + ' (i totali li comprendono tutti): restringi la ricerca.' : j.totale + (j.totale === 1 ? ' movimento' : ' movimenti');
   } catch (e) { if ($('#rLista')) $('#rLista').innerHTML = '<div class="err">' + esc(e.message) + '</div>'; }
 }
 
@@ -1243,7 +1300,7 @@ $('#sheetWrap').onclick = e => { if (e.target.id === 'sheetWrap') chiudiSheet();
 /* ═════════════ Avvio ═════════════ */
 document.querySelectorAll('#nav button').forEach(b => b.onclick = () => {
   if (b.dataset.v === 'nuovo' && VISTA !== 'nuovo') F = nuovoForm(F.tipo);
-  if (b.dataset.v === 'registro') { REG.conto = ''; REG.testo = ''; REG.cestino = false; }
+  if (b.dataset.v === 'registro') Object.assign(REG, { conto: '', testo: '', cestino: false, etichetta: '' });
   vai(b.dataset.v);
 });
 $('#btnSettings').onclick = () => vai('impostazioni');

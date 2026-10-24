@@ -25,12 +25,12 @@ Sicurezza: il token API (Proprietà script `API_TOKEN`, visibile da *💰 Finanz
 ## 2. File
 
 **Apps Script**
-- `Codice.gs` (versione attuale **1.4**): tutto il backend.
+- `Codice.gs` (versione attuale **1.5**): tutto il backend.
 - `Form.html`: pannello "Nuova transazione" dentro Google Sheets (menu 💰 Finanze).
 
 **Repository GitHub (PWA)**
 - `index.html`: tutta l'app (HTML + CSS + JS in un file, nessuna libreria esterna).
-- `manifest.webmanifest`, `sw.js` (service worker, cache `finanze-v3`), `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `LEGGIMI.md`.
+- `manifest.webmanifest`, `sw.js` (service worker, cache `finanze-v4`), `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `LEGGIMI.md`.
 
 ---
 
@@ -86,9 +86,16 @@ Controlli anti-errore: `controlliCoerenza_()` in Codice.gs (rimborsi, ricariche,
 - **Eliminare una voce**: possibile se non ha movimenti attivi; le scritture nel cestino che la usano vengono cancellate definitivamente.
 - **Grafici** (Home → 📊 Grafici, libreria Chart.js 4.4.1 da cdnjs, caricata solo in quella schermata): entrate/uscite/risparmio per mese, costi per categoria e per voce, entrate per fonte, patrimonio netto e liquidità a fine mese, gioco e trading (netto mensile e cumulato), composizione del patrimonio. Periodi: 12 mesi, anno corrente, anno scorso, mese corrente.
 
+## Registro con periodi, totali ed etichette (v1.5)
+
+- Filtri: conto (anche cartelle), periodo (sempre, mese, mese scorso, anno, anno scorso, personalizzato), etichetta, testo.
+- Riquadro totali calcolato su tutti i movimenti trovati: per un conto patrimoniale saldo iniziale, entrate, uscite, saldo finale; per ricavi/costi il totale; per un'etichetta il conto economico (ricavi, costi, risultato).
+- Etichette multiple separate da virgola (es. "Poker, Bratislava 2026"), suggerite nel modulo.
+- Poker/trasferte: costi per natura sotto Costi › Gioco e trading sportivo, la trasferta si raggruppa con l'etichetta, non con un conto dedicato. Bankroll live su un conto separato tra i Conti gioco. Sponsor (staking): i buy-in pagati dallo sponsor non sono costi propri; le vincite di sua spettanza sono un debito verso di lui.
+
 ## 6. API (`doPost`, campo `azione`)
 
-`datiApp` · `registraSemplice` · `registraScrittura` · `saldi` · `aggiungiConto` · `modificaConto` · `eliminaConto` · `cestina` · `saldoIniziale` · `allinea` (RIVALUTAZIONE / RETTIFICA) · `fiscale` · `ammortamenti` · `analizzaImmagine` · `assistente` · `salvaRicorrente` · `eliminaRicorrente` · `confermaScadenza` · `movimenti` (ricerca su tutta la Prima nota, filtro conto/testo/cestino) · `ripristina` · `statistiche` (dati dei grafici)
+`datiApp` · `registraSemplice` · `registraScrittura` · `saldi` · `aggiungiConto` · `modificaConto` · `eliminaConto` · `cestina` · `saldoIniziale` · `allinea` (RIVALUTAZIONE / RETTIFICA) · `fiscale` · `ammortamenti` · `analizzaImmagine` · `assistente` · `salvaRicorrente` · `eliminaRicorrente` · `confermaScadenza` · `movimenti` (ricerca su tutta la Prima nota, filtri conto/periodo/etichetta/testo/cestino, con riepilogo) · `ripristina` · `statistiche` (dati dei grafici)
 
 Gemini: funzione `gemini_()` → modello da Config (default `gemini-flash-latest`), con riprova e riserva `gemini-flash-lite-latest` se sovraccarico.
 
