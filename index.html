@@ -114,6 +114,15 @@ table.t td.num { text-align: right; white-space: nowrap; }
 .sep { height: 1px; background: var(--line); margin: 14px 0; }
 .check { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-size: 14px; }
 .check input { width: 20px; height: 20px; }
+.chart-box { position: relative; height: 240px; }
+.chart-box.alto { height: 300px; }
+.legenda { margin-top: 10px; }
+.legenda .r { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.legenda .r:last-child { border-bottom: 0; }
+.legenda .pt { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+.legenda .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legenda .p { color: var(--muted); font-size: 12.5px; width: 46px; text-align: right; }
+.card h3 { margin-top: 0; }
 .vuoto { text-align: center; color: var(--muted); padding: 24px 10px; }
 </style>
 </head>
@@ -140,7 +149,7 @@ table.t td.num { text-align: right; white-space: nowrap; }
 <div id="sheetWrap"><div id="sheet"></div></div>
 <div id="overlay"><div class="spinner"></div><div id="overlayMsg">Attendere…</div></div>
 <div id="toast"></div>
-<input type="file" id="fileFoto" accept="image/*" hidden> <input type="file" id="fileCam" accept="image/*" capture="environment" hidden>
+<input type="file" id="fileFoto" accept="image/*" hidden>
 
 <script>
 /* ═════════════ Stato e utilità ═════════════ */
@@ -186,12 +195,8 @@ async function api(azione, dati = {}) {
   try { r = await fetch(CFG.url, { method: 'POST', body: JSON.stringify({ token: CFG.token, azione, dati }) }); }
   catch (e) { throw new Error('Connessione non riuscita: controlla internet e l’URL dello script.'); }
   let j;
-   const testo = await r.text().catch(() => '');
-  try { j = JSON.parse(testo); }
-  catch (e) {
-    const pezzo = testo.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
-    throw new Error('Risposta non valida dallo script (azione "' + azione + '", HTTP ' + r.status + '): ' + (pezzo || 'risposta vuota') + ' — controlla anche in Prima nota se il movimento è stato registrato prima di riprovare.');
-  }
+  try { j = await r.json(); }
+  catch (e) { throw new Error('Risposta non valida: l’URL deve finire con /exec e il deployment deve essere accessibile a "Chiunque".'); }
   if (!j.ok && !j.richiedeConferma) throw new Error(j.errore || 'Errore sconosciuto');
   return j;
 }
@@ -258,14 +263,15 @@ window.addEventListener('popstate', e => {
 });
 
 function render() {
+  distruggiGrafici();
   if (!CFG.url || !CFG.token) return vistaSetup();
   if (!D) return ($('#main').innerHTML = '<div class="vuoto">Caricamento…</div>');
   ({ home: vistaHome, nuovo: vistaNuovo, conti: vistaConti, registro: vistaRegistro, assistente: vistaAssistente,
-     proposte: vistaProposte, fiscale: vistaFiscale, ricorrenti: vistaRicorrenti, impostazioni: vistaSetup }[VISTA] || vistaHome)();
+     proposte: vistaProposte, fiscale: vistaFiscale, ricorrenti: vistaRicorrenti, grafici: vistaGrafici, impostazioni: vistaSetup }[VISTA] || vistaHome)();
 }
 
 /* ═════════════ Setup / impostazioni ═════════════ */
-/* ═════════════ Regimi fiscali ═════════════ */ function montaRegimi() {   const box = $('#regBox'); if (!box) return;   box.innerHTML = (D.regimi || []).map(r => `<div class="nodo" data-r="${esc(r.codice)}" style="padding:10px 4px">     <div class="n"><div class="t">${esc(r.nome)}</div><div class="s muted" style="font-size:12px">${esc(r.codice)}${r.gruppo ? ' · gruppo ' + esc(r.gruppo) : ''}${r.fonte ? ' · tassato alla fonte' : ''}</div></div>     <div class="imp" style="font-size:14px">${r.aliquota !== undefined ? String(Math.round(r.aliquota * 10000) / 100).replace('.', ',') + '%' : ''}</div></div>`).join('');   box.querySelectorAll('[data-r]').forEach(n => n.onclick = () => schedaRegime((D.regimi || []).find(r => r.codice === n.dataset.r)));   $('#regNuovo').onclick = () => schedaRegime(null); }  function schedaRegime(r) {   const nuovo = !r;   r = r || { codice: '', nome: '', aliquota: 0, fonte: false, gruppo: '', anni: 0, note: '' };   const gruppi = [...new Set((D.regimi || []).map(x => x.gruppo).filter(Boolean))].join(', ');   apriSheet(`     <h2>${nuovo ? 'Nuovo regime fiscale' : 'Modifica regime'}</h2>     <label class="f">Codice (breve, senza spazi)</label><input id="rCod" value="${esc(r.codice)}" placeholder="es. CEDOLARE_21" ${nuovo ? '' : 'disabled'}>     <label class="f">Nome</label><input id="rNome" value="${esc(r.nome)}" placeholder="es. Affitti – cedolare secca 21%">     <label class="f">Aliquota (%)</label><input id="rAliq" inputmode="decimal" value="${String(Math.round((r.aliquota || 0) * 10000) / 100).replace('.', ',')}">     <label class="check"><input type="checkbox" id="rFonte" ${r.fonte ? 'checked' : ''}> Già tassato alla fonte (l’imposta la paga qualcun altro per me)</label>     <label class="f">Gruppo</label><input id="rGruppo" value="${esc(r.gruppo || '')}" placeholder="es. AFFITTI">     <div class="hint">Nel Riepilogo fiscale i regimi dello stesso gruppo stanno sulla stessa riga. Gruppi esistenti: ${esc(gruppi || 'nessuno')}</div>     <label class="f">Anni di riporto delle perdite (0 = non si riportano)</label><input id="rAnni" inputmode="numeric" value="${r.anni || 0}">     <label class="f">Note</label><input id="rNote" value="${esc(r.note || '')}">     <div id="rMsg"></div>     <div class="grid2" style="margin-top:16px"><button class="btn" id="rAnn">Annulla</button><button class="btn primary" id="rOk">Salva</button></div>`, s => {     s.querySelector('#rAnn').onclick = chiudiSheet;     s.querySelector('#rOk').onclick = async () => {       const q = id => s.querySelector(id).value;       attesa(true, 'Salvo…');       try {         await api('salvaRegime', { nuovo, codice: q('#rCod'), nome: q('#rNome'), aliquota: num(q('#rAliq')), fonte: s.querySelector('#rFonte').checked,           gruppo: q('#rGruppo'), anni: q('#rAnni'), note: q('#rNote') });         chiudiSheet(); await caricaDati(false); toast('Regime salvato ✓'); render();       } catch (e) { s.querySelector('#rMsg').innerHTML = '<div class="err">' + esc(e.message) + '</div>'; }       finally { attesa(false); }     };   }); }  function vistaSetup() {
+function vistaSetup() {
   $('#main').innerHTML = `
     <h2>Collega l'app al tuo foglio</h2>
     <div class="card">
@@ -279,8 +285,8 @@ function render() {
       <div id="sMsg"></div>
     </div>
     ${CFG.url ? '<button class="btn block danger" id="sEsci">Scollega questo telefono</button>' : ''}
-    <p class="muted" style="font-size:12.5px;margin-top:18px">URL e token restano solo su questo telefono. I tuoi dati vivono nel tuo Google Sheet.</p>     ${D ? `<div class="row between" style="margin-top:22px"><h2>Regimi fiscali</h2><button class="btn small primary" id="regNuovo">+ Nuovo</button></div>     <p class="muted" style="font-size:12.5px">Tocca un regime per modificarlo. Poi assegnalo a un conto di ricavo o costo da Conti.</p>     <div class="card" id="regBox" style="padding:4px 10px"></div>` : ''}`;
-  if (D) montaRegimi();   $('#sSalva').onclick = async () => {
+    <p class="muted" style="font-size:12.5px;margin-top:18px">URL e token restano solo su questo telefono. I tuoi dati vivono nel tuo Google Sheet.</p>`;
+  $('#sSalva').onclick = async () => {
     CFG.url = $('#sUrl').value.trim(); CFG.token = $('#sTok').value.trim();
     if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(CFG.url)) { $('#sMsg').innerHTML = '<div class="err">L’URL deve iniziare con https://script.google.com/ e finire con /exec</div>'; return; }
     LS.set('fin_url', CFG.url); LS.set('fin_token', CFG.token);
@@ -296,7 +302,7 @@ function render() {
 }
 
 /* ═════════════ Home ═════════════ */
-/* ═════════════ Ricavi e costi per periodo ═════════════ */ const PERIODI = { mese: 'Questo mese', scorso: 'Mese scorso', anno: 'Da gennaio', pers: 'Scegli le date…' }; let PER = null; function isoD(x) { return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); } function intervalloPer() {   const k = LS.get('fin_per') || 'mese', d = new Date(), y = d.getFullYear(), m = d.getMonth();   if (k === 'scorso') return [isoD(new Date(y, m - 1, 1)), isoD(new Date(y, m, 0))];   if (k === 'anno') return [isoD(new Date(y, 0, 1)), oggiISO()];   if (k === 'pers') return [LS.get('fin_per_dal') || isoD(new Date(y, m, 1)), LS.get('fin_per_al') || oggiISO()];   return [isoD(new Date(y, m, 1)), oggiISO()]; } async function caricaPeriodo() {   const [dal, al] = intervalloPer();   const chiave = dal + '|' + al + '|' + (LS.get('fin_cache_ora') || '');   if (PER && PER.chiave === chiave) return PER;   const j = await api('periodo', { dal, al });   j.chiave = chiave; PER = j;   return PER; } function montaCE() {   const k = LS.get('fin_per') || 'mese';   const mio = montaCE.n = (montaCE.n || 0) + 1;   $('#cePer').innerHTML = Object.keys(PERIODI).map(x => `<option value="${x}"${x === k ? ' selected' : ''}>${PERIODI[x]}</option>`).join('');   const [dal, al] = intervalloPer();   $('#ceDate').style.display = k === 'pers' ? 'grid' : 'none';   $('#ceDal').value = dal; $('#ceAl').value = al;   $('#cePer').onchange = () => { LS.set('fin_per', $('#cePer').value); montaCE(); };   $('#ceDal').onchange = $('#ceAl').onchange = () => { LS.set('fin_per_dal', $('#ceDal').value); LS.set('fin_per_al', $('#ceAl').value); montaCE(); };   $('#ceDati').className = 'muted';   $('#ceDati').innerHTML = 'Calcolo…';   caricaPeriodo().then(p => {     if (mio !== montaCE.n || !$('#ceDati')) return;     const voci = Object.keys(p.conti).filter(c => MAPPA[c] && MAPPA[c].sezione === 'COS' && MAPPA[c].tipo !== 'Cartella' && p.conti[c] > 0)       .sort((a, b) => p.conti[b] - p.conti[a]).slice(0, 5);     const max = voci.length ? p.conti[voci[0]] : 1;     $('#ceDati').className = '';     $('#ceDati').innerHTML = `       <div class="muted" style="font-size:12.5px">dal ${dataIT(p.dal)} al ${dataIT(p.al)}</div>       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px">         <div><div class="muted" style="font-size:12px">Ricavi</div><div class="verde" style="font-weight:700">${eur(p.ricavi)}</div></div>         <div><div class="muted" style="font-size:12px">Costi</div><div class="rosso" style="font-weight:700">${eur(p.costi)}</div></div>         <div><div class="muted" style="font-size:12px">Risultato</div><div class="${p.utile < 0 ? 'rosso' : 'verde'}" style="font-weight:700">${eur(p.utile)}</div></div>       </div>       ${voci.length ? '<div class="muted" style="font-size:12.5px;margin-top:12px">Dove sono andati i soldi</div>' + voci.map(c => `         <div style="margin-top:6px;font-size:13.5px"><div class="row between"><span>${esc(MAPPA[c].nome)}</span><span>${eur(p.conti[c])}</span></div>         <div style="height:4px;border-radius:2px;background:var(--rosso);opacity:.55;width:${Math.max(4, Math.round(p.conti[c] / max * 100))}%"></div></div>`).join('') : ''}`;   }).catch(e => { if (mio === montaCE.n && $('#ceDati')) $('#ceDati').innerHTML = '<div class="err">' + esc(e.message) + '</div>'; }); }  function vistaHome() {
+function vistaHome() {
   const r = D.riepilogo || {};
   const ora = LS.get('fin_cache_ora');
   $('#main').innerHTML = `
@@ -307,17 +313,9 @@ function render() {
     </div>
     <div class="grid2">
       <div class="card kpi"><div class="lbl">Liquidità disponibile</div><div class="val blu">${eur(r.liquidita)}</div></div>
-           <div class="card kpi"><div class="lbl">Patrimonio produttivo</div><div class="val">${((r.indipendenza || 0) * 100).toFixed(1).replace('.', ',')}%</div><div class="muted" style="font-size:11px">quota delle attività che può rendere</div></div>
-      ${(() => { const k = r.copertura || {}, q = k.quota; return `<div class="card kpi" style="grid-column:1/-1">
-        <div class="row between"><div class="lbl">Indipendenza finanziaria</div><div class="val ${q >= 1 ? 'verde' : ''}">${q === null || q === undefined ? '—' : (Math.round(q * 1000) / 10).toFixed(1).replace('.', ',') + '%'}</div></div>
-        <div style="height:6px;border-radius:3px;background:var(--line);margin-top:8px;overflow:hidden"><div style="height:100%;width:${Math.max(0, Math.min(100, (q || 0) * 100))}%;background:var(--verde)"></div></div>
-        <div class="muted" style="font-size:11.5px;margin-top:6px">${q === null || q === undefined ? 'Servono spese registrate per calcolarla.' : 'Redditi passivi ' + eur(k.redditi) + ' su ' + eur(k.spese) + ' di spese · ' + (k.mesi >= 12 ? 'ultimi 12 mesi' : 'dati di ' + k.mesi + (k.mesi === 1 ? ' mese' : ' mesi')) + '. Al 100% vivi di rendita.'}</div>
-      </div>`; })()}
-    </div>
-    <div class="card" id="ceBox">
-      <div class="row between"><b>Ricavi e costi</b><select id="cePer" style="width:auto"></select></div>
-      <div id="ceDate" class="grid2" style="margin-top:8px;display:none"><input type="date" id="ceDal"><input type="date" id="ceAl"></div>
-      <div id="ceDati" class="muted" style="margin-top:10px">Calcolo…</div>
+      <div class="card kpi"><div class="lbl">Indipendenza finanziaria</div><div class="val">${((r.indipendenza || 0) * 100).toFixed(1).replace('.', ',')}%</div></div>
+      <div class="card kpi"><div class="lbl">Ricavi da gennaio</div><div class="val verde">${eur(r.ricaviAnno)}</div></div>
+      <div class="card kpi"><div class="lbl">Costi da gennaio</div><div class="val rosso">${eur(r.costiAnno)}</div></div>
     </div>
     <div class="azioni">
       <button class="btn primary big" id="hFoto">📷 Foto / screenshot</button>
@@ -334,13 +332,14 @@ function render() {
         </div>
       </div>`).join('') : ''}
     ${D.aiAttiva ? '' : '<div class="warn">La lettura delle foto e l’assistente non sono ancora attivi: nel foglio usa <b>💰 Finanze → Imposta chiave Gemini</b>.</div>'}
-    <div class="row between"><h2>Ultimi movimenti</h2><div class="row"><button class="btn small" id="hRic">🔁 Ricorrenti</button><button class="btn small" id="hFisc">🧾 Fiscale</button></div></div>
+    <div class="row between"><h2>Ultimi movimenti</h2><div class="row"><button class="btn small" id="hGraf">📊 Grafici</button><button class="btn small" id="hRic">🔁 Ricorrenti</button><button class="btn small" id="hFisc">🧾 Fiscale</button></div></div>
     <div class="card list" id="hUltimi"></div>
     <p class="muted" style="font-size:12px;text-align:center">${ora ? 'Aggiornato ' + new Date(ora).toLocaleString('it-IT') : ''}</p>`;
-  $('#hFoto').onclick = () => sceltaFoto();   montaCE();
+  $('#hFoto').onclick = () => $('#fileFoto').click();
   $('#hNuovo').onclick = () => vai('nuovo');
   $('#hFisc').onclick = () => vai('fiscale');
   $('#hRic').onclick = () => vai('ricorrenti');
+  $('#hGraf').onclick = () => vai('grafici');
   document.querySelectorAll('.scad').forEach(card => {
     const x = D.scadenze[+card.dataset.i];
     card.querySelector('.sOk').onclick = () => confermaScad(x, card.querySelector('.sImp').value, false);
@@ -354,7 +353,7 @@ function listaMovimenti(el, lista) {
   el.innerHTML = lista.map((m, i) => `
     <div class="item" data-i="${i}">
       <div style="min-width:0"><div class="t">${esc(m.descrizione)}</div><div class="s">${dataIT(m.data)} · ${esc(riassuntoMovimento(m))}</div></div>
-      <div class="imp ${coloreMovimento(m)}">${eur(m.importo)}</div>
+      <div class="imp ${m.effetto != null ? (m.effetto < 0 ? 'rosso' : 'verde') : coloreMovimento(m)}">${m.effetto != null ? (m.effetto > 0 ? '+' : '') + eur(m.effetto) : eur(m.importo)}</div>
     </div>`).join('');
   el.querySelectorAll('.item').forEach(it => it.onclick = () => dettaglioMovimento(lista[+it.dataset.i]));
 }
@@ -367,17 +366,36 @@ function dettaglioMovimento(m) {
       <tr><td class="muted">Conto</td><td class="num muted">Dare</td><td class="num muted">Avere</td></tr>
       ${m.righe.map(r => `<tr><td>${esc(r.nome)}</td><td class="num">${r.dare ? eur(r.dare) : ''}</td><td class="num">${r.avere ? eur(r.avere) : ''}</td></tr>`).join('')}
     </table>
-    <p class="muted" style="font-size:12.5px">Per correggerlo: spostalo nel cestino e registralo di nuovo.</p>
+    ${m.cestino ? `
     <div class="grid2" style="margin-top:14px">
-      <button class="btn danger" id="mCest">🗑 Sposta nel cestino</button>
+      <button class="btn primary" id="mRip">↩️ Ripristina</button>
       <button class="btn" id="mChiudi">Chiudi</button>
-    </div>`, s => {
+    </div>` : `
+    <div style="display:grid;gap:8px;margin-top:14px">
+      <button class="btn block" id="mCorr">✏️ Correggi</button>
+      <button class="btn block danger" id="mCest">🗑 Sposta nel cestino</button>
+      <button class="btn block" id="mChiudi">Chiudi</button>
+    </div>
+    <p class="muted" style="font-size:12.5px">"Correggi" apre il movimento nel modulo: quando salvi, la versione vecchia va nel cestino.</p>`}`, s => {
     s.querySelector('#mChiudi').onclick = chiudiSheet;
-    s.querySelector('#mCest').onclick = async () => {
+    const dopo = async msg => { chiudiSheet(); await caricaDati(false); toast(msg); if (VISTA === 'registro') caricaRegistro(); else render(); };
+    if (s.querySelector('#mRip')) s.querySelector('#mRip').onclick = async () => {
+      attesa(true, 'Ripristino…');
+      try { await api('ripristina', { id: m.id }); await dopo('Ripristinato ✓'); }
+      catch (e) { toast(e.message, 4500); } finally { attesa(false); }
+    };
+    if (s.querySelector('#mCest')) s.querySelector('#mCest').onclick = async () => {
       if (!confirm('Spostare questo movimento nel cestino?')) return;
       attesa(true, 'Sposto nel cestino…');
-      try { await api('cestina', { id: m.id }); chiudiSheet(); await caricaDati(false); toast('Spostato nel cestino'); render(); }
+      try { await api('cestina', { id: m.id }); await dopo('Spostato nel cestino'); }
       catch (e) { toast(e.message, 4500); } finally { attesa(false); }
+    };
+    if (s.querySelector('#mCorr')) s.querySelector('#mCorr').onclick = () => {
+      F = nuovoForm('Altro');
+      F.data = m.data; F.descrizione = m.descrizione; F.etichetta = m.etichetta || '';
+      F.righe = m.righe.map(r => ({ conto: r.conto, lato: r.dare ? 'DARE' : 'AVERE', imp: String(r.dare || r.avere).replace('.', ',') }));
+      F.sostituisce = m.id; F.sostituisceDescr = m.descrizione;
+      chiudiSheet(); vai('nuovo');
     };
   });
 }
@@ -387,7 +405,8 @@ function vistaNuovo() {
   const altro = F.tipo === 'Altro';
   const r = REGOLE[F.tipo];
   $('#main').innerHTML = `
-    <h2>Nuovo movimento</h2>
+    <h2>${F.sostituisce ? 'Correggi movimento' : 'Nuovo movimento'}</h2>
+    ${F.sostituisce ? `<div class="warn">Stai correggendo "<b>${esc(F.sostituisceDescr)}</b>". Quando salvi, la versione vecchia va nel cestino. <button class="btn small" id="nAnnCorr" style="margin-top:6px">Annulla correzione</button></div>` : ''}
     <div class="seg" id="nTipi">${TIPI.map(t => `<button data-t="${t}" class="${t === F.tipo ? 'on' : ''}">${t}</button>`).join('')}</div>
     ${hint(guida('tipo.' + F.tipo))}
     <label class="f">Data</label>
@@ -424,6 +443,7 @@ function vistaNuovo() {
     <div>${Object.keys(D.guida || {}).filter(k => k.indexOf('caso.') === 0).map(k => `<details class="card" style="padding:10px 12px"><summary><b>${esc(D.guida[k].titolo)}</b></summary>${hint(D.guida[k])}</details>`).join('')}</div>`;
 
   document.querySelectorAll('#nTipi button').forEach(b => b.onclick = () => { leggiForm(); F.tipo = b.dataset.t; F.avere = ''; F.dare = ''; render(); });
+  if ($('#nAnnCorr')) $('#nAnnCorr').onclick = () => { F = nuovoForm(); vai('registro'); };
   document.querySelectorAll('.chips .chip[data-g]').forEach(b => b.onclick = () => { $('#nData').value = oggiISO(+b.dataset.g); });
   if (altro) {
     disegnaRighe();
@@ -435,7 +455,7 @@ function vistaNuovo() {
     h('#nAvere', '#hAvere'); h('#nDare', '#hDare');
   }
   $('#nSalva').onclick = () => salvaForm(false);
-  $('#nFoto').onclick = () => sceltaFoto();
+  $('#nFoto').onclick = () => $('#fileFoto').click();
   $('#nAiuto').onclick = () => { leggiForm(); CTX = 'Sta compilando un movimento: ' + descriviForm(); vai('assistente'); };
 }
 
@@ -493,8 +513,14 @@ function descriviForm() {
 async function registra(m, forza) {
   if (m.tipo === 'Altro') {
     const righe = m.righe.map(r => ({ conto: r.conto, dare: r.lato === 'DARE' ? num(r.imp) : 0, avere: r.lato === 'AVERE' ? num(r.imp) : 0 }));
-    await api('registraScrittura', { data: m.data, descrizione: m.descrizione, etichetta: m.etichetta, righe, origine: m.origine || 'APP' });
+    await api('registraScrittura', { data: m.data, descrizione: m.descrizione, etichetta: m.etichetta, righe, origine: m.origine || 'APP', sostituisce: m.sostituisce || '' });
     return { ok: true };
+  }
+  if (m.sostituisce) {
+    const j = await api('registraSemplice', { tipo: m.tipo, data: m.data, descrizione: m.descrizione, importo: m.importo,
+      contoAvere: m.avere, contoDare: m.dare, etichetta: m.etichetta, forza: !!forza, origine: m.origine || 'APP' });
+    if (j.ok && j.id) await api('cestina', { id: m.sostituisce });
+    return j;
   }
   const j = await api('registraSemplice', { tipo: m.tipo, data: m.data, descrizione: m.descrizione, importo: m.importo,
     contoAvere: m.avere, contoDare: m.dare, etichetta: m.etichetta, forza: !!forza, origine: m.origine || 'APP' });
@@ -514,11 +540,11 @@ async function salvaForm(forza) {
       $('#nChiedi').onclick = () => { CTX = 'Movimento in compilazione: ' + descriviForm() + '. Avvisi dell’app: ' + j.avvisi.join(' '); vai('assistente'); };
       return;
     }
-    const tipo = F.tipo, data = F.data;
-    F = nuovoForm(tipo); F.data = data;
+    const tipo = F.tipo, data = F.data, eraCorrezione = !!F.sostituisce;
+    F = nuovoForm(eraCorrezione ? 'Uscita' : tipo); if (!eraCorrezione) F.data = data;
     await caricaDati(false);
-    toast('Registrato ✓');
-    render();
+    toast(eraCorrezione ? 'Corretto ✓' : 'Registrato ✓');
+    if (eraCorrezione) vai('registro'); else render();
   } catch (e) {
     $('#nMsg').innerHTML = '<div class="err">' + esc(e.message) + '</div>';
   } finally {
@@ -528,7 +554,7 @@ async function salvaForm(forza) {
 }
 
 /* ═════════════ Foto / screenshot ═════════════ */
-$('#fileFoto').onchange = $('#fileCam').onchange = async e => {
+$('#fileFoto').onchange = async e => {
   const file = e.target.files[0];
   e.target.value = '';
   if (!file) return;
@@ -544,7 +570,7 @@ $('#fileFoto').onchange = $('#fileCam').onchange = async e => {
   finally { attesa(false); }
 };
 
-function sceltaFoto() {   apriSheet(`     <h2>Aggiungi da foto</h2>     <button class="btn block primary" id="fCam" style="margin-bottom:10px">📷 Scatta una foto</button>     <button class="btn block" id="fGal">🖼️ Scegli dalla galleria / screenshot</button>`, el => {     el.querySelector('#fCam').onclick = () => { chiudiSheet(); $('#fileCam').click(); };     el.querySelector('#fGal').onclick = () => { chiudiSheet(); $('#fileFoto').click(); };   }); }  function comprimi(file) {
+function comprimi(file) {
   return new Promise((res, rej) => {
     const img = new Image(), url = URL.createObjectURL(file);
     img.onload = () => {
@@ -585,7 +611,7 @@ function vistaProposte() {
         <div class="muted" style="font-size:13px;margin:4px 0 8px">${dataIT(p.data)} · ${esc(p.tipo)}</div>
         ${p.tipo === 'Altro'
           ? p.righe.map(r => `<div style="font-size:14px">${n(r.conto)} — ${r.lato === 'DARE' ? 'Dare' : 'Avere'} ${eur(num(r.imp))}</div>`).join('')
-          : `<div style="font-size:18px;font-weight:700">${eur(num(p.importo))}</div>${p.tipo === 'Uscita' && p.stato !== 'salvato'             ? `<label class="f">Pagato con</label><select class="pPag">${opzioniConti(PATR, p.avere)}</select><div style="font-size:14px;margin-top:6px">→ ${n(p.dare)}</div>`             : `<div style="font-size:14px">${n(p.avere)} → ${n(p.dare)}</div>`}`}
+          : `<div style="font-size:18px;font-weight:700">${eur(num(p.importo))}</div><div style="font-size:14px">${n(p.avere)} → ${n(p.dare)}</div>`}
         ${p.note ? '<div class="hint">💡 ' + esc(p.note) + '</div>' : ''}
         <div class="pMsg"></div>
         ${p.stato === 'salvato' ? '<div class="verde" style="font-weight:700;margin-top:10px">Registrato ✓</div>' : `
@@ -595,12 +621,12 @@ function vistaProposte() {
         </div>`}
       </div>`).join('')}
     <button class="btn block" id="pAltra" style="margin-top:6px">📷 Un'altra foto</button>`;
-  $('#pAltra').onclick = () => sceltaFoto();
+  $('#pAltra').onclick = () => $('#fileFoto').click();
   document.querySelectorAll('#main .card[data-i]').forEach(card => {
     const p = PROPOSTE[+card.dataset.i];
     const mod = card.querySelector('.pMod'), sal = card.querySelector('.pSalva');
     if (mod) mod.onclick = () => { F = Object.assign(nuovoForm(), p); p.stato = 'in modifica'; vai('nuovo'); };
-    if (sal) sal.onclick = () => confermaProposta(p, card, false);     const pag = card.querySelector('.pPag');     if (pag) pag.onchange = () => { p.avere = pag.value; };
+    if (sal) sal.onclick = () => confermaProposta(p, card, false);
   });
 }
 
@@ -638,11 +664,11 @@ function vistaConti() {
     if (!radici.length) return;
     const patr = PATR.indexOf(sez) >= 0;
     const tot = radici.reduce((s, c) => s + (c.saldo || 0), 0);
-    html += `<div class="sez-title"><span>${esc(NOMI_SEZ[sez])}</span><span>${patr ? eur(tot) : (PER && (sez === 'RIC' || sez === 'COS') ? eur(sez === 'RIC' ? PER.ricavi : PER.costi) : '')}</span></div><div class="card" style="padding:4px 10px">`;
+    html += `<div class="sez-title"><span>${esc(NOMI_SEZ[sez])}</span><span>${patr ? eur(tot) : ''}</span></div><div class="card" style="padding:4px 10px">`;
     radici.forEach(r => html += nodo(r, 0));
     html += '</div>';
   });
-  el.innerHTML = html + `<p class="muted" style="font-size:12.5px">Ricavi e costi: ${PER ? 'dal ' + dataIT(PER.dal) + ' al ' + dataIT(PER.al) + ' (periodo scelto in Home)' : 'calcolo…'}</p>`;   const usato = PER;   caricaPeriodo().then(p => { if (p !== usato && VISTA === 'conti') vistaConti(); }).catch(() => {});
+  el.innerHTML = html;
   el.querySelectorAll('.nodo').forEach(n => {
     n.onclick = e => {
       const c = MAPPA[n.dataset.c];
@@ -662,7 +688,7 @@ function nodo(c, liv) {
   let h = `<div class="nodo ${cart ? 'cartella' : ''} ${c.attivo ? '' : 'nascosto'}" data-c="${esc(c.codice)}" style="padding-left:${4 + liv * 16}px">
     <span class="car">${cart ? (chiusa ? '▸' : '▾') : '·'}</span>
     <div class="n"><div class="t">${esc(c.nome)}</div>${!c.attivo ? '<div class="s muted">nascosto</div>' : ''}</div>
-    <div class="imp ${c.saldo < 0 ? 'rosso' : ''}" style="font-size:14px">${patr ? (c.saldo || !cart ? eur(c.saldo) : '') : (PER && PER.conti[c.codice] ? eur(PER.conti[c.codice]) : '')}</div>
+    <div class="imp ${c.saldo < 0 ? 'rosso' : ''}" style="font-size:14px">${patr && (c.saldo || !cart) ? eur(c.saldo) : ''}</div>
   </div>`;
   if (cart && !chiusa) figli(c.codice).forEach(f => h += nodo(f, liv + 1));
   return h;
@@ -681,6 +707,7 @@ function schedaConto(c) {
     ${c.suggerimento ? '<div class="hint">💡 ' + esc(c.suggerimento) + '</div>' : ''}
     ${sistema ? '<div class="hint">Voce di sistema: la usa l’app per le scritture automatiche.</div>' : ''}
     <div style="display:grid;gap:8px;margin-top:14px">
+      <button class="btn block" id="kMov">📜 Movimenti di questa voce</button>
       <button class="btn block" id="kMod">✏️ Modifica / sposta</button>
       ${cart ? '<button class="btn block" id="kAdd">➕ Aggiungi una voce qui dentro</button>' : ''}
       ${patr && !cart ? '<button class="btn block" id="kSaldo">🏁 Saldo iniziale</button>' : ''}
@@ -689,14 +716,15 @@ function schedaConto(c) {
       ${eliminabile ? '<button class="btn block danger" id="kDel">🗑 Elimina</button>' : ''}
       <button class="btn block" id="kChiudi">Chiudi</button>
     </div>
-    ${!eliminabile && c.padre && !sistema ? `<p class="muted" style="font-size:12.5px">${haFigli ? 'Contiene altre voci: per eliminarla svuotala prima.' : 'Ha già movimenti: non si elimina per non rovinare lo storico, ma puoi nasconderla.'}</p>` : ''}`, s => {
+    ${!eliminabile && c.padre && !sistema ? `<p class="muted" style="font-size:12.5px">${haFigli ? 'Contiene altre voci: per eliminarla svuotala prima.' : 'Ha dei movimenti (anche nel cestino): non si elimina per non rovinare lo storico. Puoi correggere i movimenti da "📜 Movimenti" oppure nasconderla.'}</p>` : ''}`, s => {
     s.querySelector('#kChiudi').onclick = chiudiSheet;
     s.querySelector('#kMod').onclick = () => formModifica(c);
+    s.querySelector('#kMov').onclick = () => { REG.conto = c.codice; REG.testo = ''; REG.cestino = false; chiudiSheet(); vai('registro'); };
     if (s.querySelector('#kAdd')) s.querySelector('#kAdd').onclick = () => formNuovaVoce(c.codice);
     if (s.querySelector('#kSaldo')) s.querySelector('#kSaldo').onclick = () => formSaldoIniziale(c);
     if (s.querySelector('#kAll')) s.querySelector('#kAll').onclick = () => formAllinea(c);
     if (s.querySelector('#kVis')) s.querySelector('#kVis').onclick = () => azioneConto('modificaConto', { codice: c.codice, attivo: !c.attivo }, c.attivo ? 'Nascosto' : 'Riattivato');
-    if (s.querySelector('#kDel')) s.querySelector('#kDel').onclick = () => { if (confirm('Eliminare "' + c.nome + '"?')) azioneConto('eliminaConto', { codice: c.codice }, 'Eliminato'); };
+    if (s.querySelector('#kDel')) s.querySelector('#kDel').onclick = () => { if (confirm('Eliminare "' + c.nome + '"? Le eventuali scritture nel cestino che la usano verranno cancellate definitivamente.')) azioneConto('eliminaConto', { codice: c.codice }, 'Eliminato'); };
   });
 }
 
@@ -817,19 +845,39 @@ function formAllinea(c) {
 }
 
 /* ═════════════ Registro ═════════════ */
+const REG = { conto: '', testo: '', cestino: false };
+
 function vistaRegistro() {
+  const c = REG.conto ? MAPPA[REG.conto] : null;
   $('#main').innerHTML = `
-    <h2>Registro</h2>
-    <input id="rCerca" placeholder="Cerca per descrizione, conto o importo">
-    <div class="card list" id="rLista" style="margin-top:10px"></div>
-    <p class="muted" style="font-size:12.5px;text-align:center">Ultimi ${(D.ultimi || []).length} movimenti. Lo storico completo è nel foglio "Prima nota".</p>`;
-  const filtra = () => {
-    const q = $('#rCerca').value.trim().toLowerCase();
-    const l = (D.ultimi || []).filter(m => !q || (m.descrizione + ' ' + riassuntoMovimento(m) + ' ' + m.importo + ' ' + (m.etichetta || '')).toLowerCase().indexOf(q.replace(',', '.')) >= 0);
-    listaMovimenti($('#rLista'), l);
-  };
-  $('#rCerca').oninput = filtra;
-  filtra();
+    <h2>${REG.cestino ? '🗑 Cestino' : 'Registro'}</h2>
+    <div class="seg" style="grid-template-columns:1fr 1fr" id="rSeg">
+      <button data-c="0" class="${REG.cestino ? '' : 'on'}">Movimenti</button><button data-c="1" class="${REG.cestino ? 'on' : ''}">Cestino</button>
+    </div>
+    <label class="f">Conto</label>
+    <select id="rConto"><option value="">Tutti i conti</option>${D.conti.filter(x => x.attivo || x.codice === REG.conto).map(x => `<option value="${esc(x.codice)}"${x.codice === REG.conto ? ' selected' : ''}>${esc(percorso(x.codice))}</option>`).join('')}</select>
+    ${c && PATR.indexOf(c.sezione) >= 0 ? `<div class="muted" style="margin-top:6px">Saldo attuale: <b>${eur(c.saldo)}</b></div>` : ''}
+    <input id="rCerca" placeholder="Cerca per descrizione, conto o importo" value="${esc(REG.testo)}" style="margin-top:10px">
+    <div class="card list" id="rLista" style="margin-top:10px"><div class="vuoto">Carico…</div></div>
+    <p class="muted" id="rInfo" style="font-size:12.5px;text-align:center"></p>`;
+  document.querySelectorAll('#rSeg button').forEach(b => b.onclick = () => { REG.cestino = b.dataset.c === '1'; vistaRegistro(); });
+  $('#rConto').onchange = e => { REG.conto = e.target.value; vistaRegistro(); };
+  let t;
+  $('#rCerca').oninput = e => { REG.testo = e.target.value; clearTimeout(t); t = setTimeout(caricaRegistro, 400); };
+  caricaRegistro();
+}
+
+async function caricaRegistro() {
+  const richiesta = JSON.stringify(REG);
+  caricaRegistro.ultima = richiesta;
+  try {
+    const j = await api('movimenti', { conto: REG.conto, testo: REG.testo, cestino: REG.cestino, limite: 300 });
+    if (VISTA !== 'registro' || caricaRegistro.ultima !== richiesta) return;
+    const lista = j.movimenti.map(m => Object.assign(m, { cestino: REG.cestino }));
+    listaMovimenti($('#rLista'), lista);
+    if (!lista.length) $('#rLista').innerHTML = '<div class="vuoto">' + (REG.cestino ? 'Il cestino è vuoto.' : 'Nessun movimento trovato.') + '</div>';
+    $('#rInfo').textContent = j.totale > lista.length ? 'Mostrati ' + lista.length + ' su ' + j.totale + ': restringi la ricerca.' : j.totale + (j.totale === 1 ? ' movimento' : ' movimenti');
+  } catch (e) { if ($('#rLista')) $('#rLista').innerHTML = '<div class="err">' + esc(e.message) + '</div>'; }
 }
 
 /* ═════════════ Fiscale ═════════════ */
@@ -1037,6 +1085,151 @@ function formRicorrente(t, r) {
   });
 }
 
+/* ═════════════ Grafici ═════════════ */
+let GRAFICI = [];
+let PERIODO = '12mesi';
+let DETTAGLIO_COSTI = 'categorie';
+const PALETTE = ['#2f6bd8', '#c99a2e', '#2a9a5c', '#d0503f', '#8a5cd6', '#1c9aa0', '#e07b2c', '#6f7d99', '#c94b93', '#7c9a2c', '#a0522d', '#4b8bbe'];
+const NOMI_MESI = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+
+function distruggiGrafici() { GRAFICI.forEach(g => { try { g.destroy(); } catch (e) {} }); GRAFICI = []; }
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function etichettaMese(k) { const [y, m] = k.split('-'); return NOMI_MESI[+m - 1] + ' ' + y.slice(2); }
+const eur0 = n => (Number(n) || 0).toLocaleString('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+
+function caricaChartJs() {
+  if (window.Chart) return Promise.resolve();
+  if (caricaChartJs.p) return caricaChartJs.p;
+  caricaChartJs.p = new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
+    sc.onload = () => res();
+    sc.onerror = () => { caricaChartJs.p = null; rej(new Error('Non riesco a caricare i grafici: controlla la connessione.')); };
+    document.head.appendChild(sc);
+  });
+  return caricaChartJs.p;
+}
+
+function nuovoGrafico(id, config) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  Chart.defaults.color = css('--muted');
+  Chart.defaults.borderColor = css('--line');
+  Chart.defaults.font.family = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+  config.options = Object.assign({ responsive: true, maintainAspectRatio: false, animation: { duration: 350 } }, config.options || {});
+  GRAFICI.push(new Chart(el, config));
+}
+
+const tooltipEuro = { callbacks: { label: c => ' ' + (c.dataset.label ? c.dataset.label + ': ' : (c.label ? c.label + ': ' : '')) + eur(c.parsed.y !== undefined && c.chart.config.type !== 'doughnut' ? (c.chart.options.indexAxis === 'y' ? c.parsed.x : c.parsed.y) : c.parsed) } };
+const assiEuro = { y: { ticks: { callback: v => eur0(v) }, grid: { color: css('--line') } }, x: { grid: { display: false } } };
+
+function legenda(lista, totale) {
+  return '<div class="legenda">' + lista.map((x, i) => `<div class="r"><span class="pt" style="background:${PALETTE[i % PALETTE.length]}"></span><span class="n">${esc(x.nome)}${x.categoria ? ' <span class="muted" style="font-size:12px">· ' + esc(x.categoria) + '</span>' : ''}</span><b>${eur(x.valore)}</b><span class="p">${totale ? Math.round(x.valore / totale * 100) + '%' : ''}</span></div>`).join('') + '</div>';
+}
+
+function raggruppaAltro(lista, max) {
+  const pos = lista.filter(x => x.valore > 0);
+  if (pos.length <= max) return pos;
+  const resto = pos.slice(max - 1).reduce((a, x) => a + x.valore, 0);
+  return pos.slice(0, max - 1).concat([{ nome: 'Altro', valore: Math.round(resto * 100) / 100 }]);
+}
+
+async function vistaGrafici() {
+  const periodi = [['12mesi', '12 mesi'], ['anno', 'Quest\'anno'], ['annoPrec', 'Anno scorso'], ['mese', 'Questo mese']];
+  $('#main').innerHTML = `
+    <h2>Grafici</h2>
+    <div class="seg" id="gPer">${periodi.map(p => `<button data-p="${p[0]}" class="${p[0] === PERIODO ? 'on' : ''}">${p[1]}</button>`).join('')}</div>
+    <div id="gBody" style="margin-top:12px"><div class="vuoto">Calcolo…</div></div>`;
+  document.querySelectorAll('#gPer button').forEach(b => b.onclick = () => { PERIODO = b.dataset.p; render(); });
+  let st;
+  try {
+    [st] = await Promise.all([api('statistiche', { periodo: PERIODO }), caricaChartJs()]);
+  } catch (e) { if ($('#gBody')) $('#gBody').innerHTML = '<div class="err">' + esc(e.message) + '</div>'; return; }
+  if (VISTA !== 'grafici' || !$('#gBody')) return;
+  disegnaGrafici(st);
+}
+
+function disegnaGrafici(st) {
+  distruggiGrafici();
+  const t = st.totali, verde = css('--verde'), rosso = css('--rosso'), blu = css('--blu'), oro = css('--accent');
+  const mesi = st.mesi.map(etichettaMese);
+  const catC = raggruppaAltro(st.categorieCosti, 8), catR = raggruppaAltro(st.categorieRicavi, 6);
+  const vociC = st.vociCosti.filter(x => x.valore > 0).slice(0, 10);
+  const giocoAttivo = st.gioco.some(v => v !== 0);
+  const comp = st.composizione.map(x => ({ nome: x.nome, valore: x.sezione === 'PAS' ? -x.valore : x.valore }));
+  const vuoto = msg => `<div class="vuoto">${msg}</div>`;
+
+  $('#gBody').innerHTML = `
+    <div class="grid2">
+      <div class="card kpi"><div class="lbl">Entrate</div><div class="val verde">${eur(t.ricavi)}</div></div>
+      <div class="card kpi"><div class="lbl">Uscite</div><div class="val rosso">${eur(t.costi)}</div></div>
+      <div class="card kpi"><div class="lbl">Risparmio</div><div class="val ${t.utile < 0 ? 'rosso' : 'blu'}">${eur(t.utile)}</div>
+        <div class="muted" style="font-size:12px">${t.risparmio == null ? '' : Math.round(t.risparmio * 100) + '% delle entrate'}</div></div>
+      <div class="card kpi"><div class="lbl">Spesa media al mese</div><div class="val">${eur(t.mediaCostiMese)}</div></div>
+    </div>
+
+    <div class="card"><h3>Entrate e uscite per mese</h3>
+      ${t.ricavi || t.costi ? '<div class="chart-box"><canvas id="cMesi"></canvas></div>' : vuoto('Nessun movimento nel periodo.')}</div>
+
+    <div class="card"><div class="row between"><h3 style="margin:0">Dove vanno i soldi</h3>
+      <div class="seg" style="grid-template-columns:1fr 1fr;width:170px" id="gDet"><button data-d="categorie" class="${DETTAGLIO_COSTI === 'categorie' ? 'on' : ''}">Categorie</button><button data-d="voci" class="${DETTAGLIO_COSTI === 'voci' ? 'on' : ''}">Voci</button></div></div>
+      <div style="margin-top:12px">${!catC.length ? vuoto('Nessuna spesa nel periodo.') : DETTAGLIO_COSTI === 'categorie'
+        ? '<div class="chart-box"><canvas id="cCosti"></canvas></div>' + legenda(catC, t.costi)
+        : '<div class="chart-box alto"><canvas id="cVoci"></canvas></div>' + legenda(vociC, t.costi)}</div></div>
+
+    <div class="card"><h3>Da dove arrivano le entrate</h3>
+      ${catR.length ? '<div class="chart-box"><canvas id="cRicavi"></canvas></div>' + legenda(catR, t.ricavi) : vuoto('Nessuna entrata nel periodo.')}</div>
+
+    <div class="card"><h3>Patrimonio netto e liquidità</h3>
+      <div class="chart-box"><canvas id="cPatr"></canvas></div>
+      <div class="muted" style="font-size:12.5px;margin-top:6px">Valori a fine mese. Il patrimonio netto è ciò che possiedi meno i debiti.</div></div>
+
+    ${giocoAttivo ? `<div class="card"><div class="row between"><h3 style="margin:0">Gioco e trading sportivo</h3><b class="${t.gioco < 0 ? 'rosso' : 'verde'}">${t.gioco > 0 ? '+' : ''}${eur(t.gioco)}</b></div>
+      <div class="chart-box" style="margin-top:10px"><canvas id="cGioco"></canvas></div>
+      <div class="muted" style="font-size:12.5px;margin-top:6px">Barre: risultato netto del mese. Linea: risultato cumulato nel periodo.</div></div>` : ''}
+
+    <div class="card"><h3>Composizione del patrimonio</h3>
+      ${comp.length ? '<div class="chart-box" style="height:' + Math.max(160, comp.length * 42) + 'px"><canvas id="cComp"></canvas></div>' : vuoto('Inserisci i saldi iniziali dei conti per vederla.')}</div>`;
+
+  document.querySelectorAll('#gDet button').forEach(b => b.onclick = () => { DETTAGLIO_COSTI = b.dataset.d; disegnaGrafici(st); });
+
+  nuovoGrafico('cMesi', { type: 'bar', data: { labels: mesi, datasets: [
+      { label: 'Entrate', data: st.ricavi, backgroundColor: verde, borderRadius: 4, order: 2 },
+      { label: 'Uscite', data: st.costi, backgroundColor: rosso, borderRadius: 4, order: 2 },
+      { label: 'Risparmio', type: 'line', data: st.ricavi.map((r, i) => Math.round((r - st.costi[i]) * 100) / 100), borderColor: blu, backgroundColor: blu, pointRadius: 3, tension: .3, order: 1 }
+    ] }, options: { plugins: { tooltip: tooltipEuro, legend: { position: 'bottom', labels: { boxWidth: 12 } } }, scales: assiEuro } });
+
+  const ciambella = (id, lista) => nuovoGrafico(id, { type: 'doughnut', data: { labels: lista.map(x => x.nome),
+      datasets: [{ data: lista.map(x => x.valore), backgroundColor: lista.map((x, i) => PALETTE[i % PALETTE.length]), borderColor: css('--card'), borderWidth: 2 }] },
+    options: { cutout: '62%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + c.label + ': ' + eur(c.parsed) } } } } });
+  ciambella('cCosti', catC);
+  ciambella('cRicavi', catR);
+
+  nuovoGrafico('cVoci', { type: 'bar', data: { labels: vociC.map(x => x.nome),
+      datasets: [{ data: vociC.map(x => x.valore), backgroundColor: vociC.map((x, i) => PALETTE[i % PALETTE.length]), borderRadius: 4 }] },
+    options: { indexAxis: 'y', plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + eur(c.parsed.x) } } },
+      scales: { x: { ticks: { callback: v => eur0(v) }, grid: { color: css('--line') } }, y: { grid: { display: false } } } } });
+
+  nuovoGrafico('cPatr', { type: 'line', data: { labels: mesi, datasets: [
+      { label: 'Patrimonio netto', data: st.patrimonio, borderColor: blu, backgroundColor: blu + '22', fill: true, tension: .3, pointRadius: 3 },
+      { label: 'Liquidità', data: st.liquidita, borderColor: oro, backgroundColor: oro, tension: .3, pointRadius: 3, borderDash: [5, 4] }
+    ] }, options: { plugins: { tooltip: tooltipEuro, legend: { position: 'bottom', labels: { boxWidth: 12 } } }, scales: assiEuro } });
+
+  if (giocoAttivo) {
+    let cum = 0;
+    const cumul = st.gioco.map(v => (cum = Math.round((cum + v) * 100) / 100));
+    nuovoGrafico('cGioco', { type: 'bar', data: { labels: mesi, datasets: [
+        { label: 'Netto del mese', data: st.gioco, backgroundColor: st.gioco.map(v => v < 0 ? rosso : verde), borderRadius: 4, order: 2 },
+        { label: 'Cumulato', type: 'line', data: cumul, borderColor: blu, backgroundColor: blu, tension: .3, pointRadius: 3, order: 1 }
+      ] }, options: { plugins: { tooltip: tooltipEuro, legend: { position: 'bottom', labels: { boxWidth: 12 } } }, scales: assiEuro } });
+  }
+
+  nuovoGrafico('cComp', { type: 'bar', data: { labels: comp.map(x => x.nome),
+      datasets: [{ data: comp.map(x => x.valore), backgroundColor: comp.map(x => x.valore < 0 ? rosso : blu), borderRadius: 4 }] },
+    options: { indexAxis: 'y', plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + eur(c.parsed.x) } } },
+      scales: { x: { ticks: { callback: v => eur0(v) }, grid: { color: css('--line') } }, y: { grid: { display: false } } } } });
+}
+
 /* ═════════════ Bottom sheet ═════════════ */
 function apriSheet(html, monta) {
   $('#sheet').innerHTML = html;
@@ -1050,6 +1243,7 @@ $('#sheetWrap').onclick = e => { if (e.target.id === 'sheetWrap') chiudiSheet();
 /* ═════════════ Avvio ═════════════ */
 document.querySelectorAll('#nav button').forEach(b => b.onclick = () => {
   if (b.dataset.v === 'nuovo' && VISTA !== 'nuovo') F = nuovoForm(F.tipo);
+  if (b.dataset.v === 'registro') { REG.conto = ''; REG.testo = ''; REG.cestino = false; }
   vai(b.dataset.v);
 });
 $('#btnSettings').onclick = () => vai('impostazioni');
