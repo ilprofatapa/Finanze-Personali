@@ -1,6 +1,6 @@
 // Service worker: rende l'app installabile e apribile anche con rete lenta.
 // Le chiamate allo script Google non passano dalla cache.
-const CACHE = 'finanze-v4';
+const CACHE = 'finanze-v5';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

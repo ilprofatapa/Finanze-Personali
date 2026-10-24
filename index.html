@@ -662,7 +662,8 @@ function vistaConti() {
   const sezioni = ['ATT+', 'ATT-', 'PAS', 'PN', 'RIC', 'COS'];
   $('#main').innerHTML = `
     <div class="row between"><h2>Conti</h2><button class="btn small primary" id="cNuovo">+ Nuova voce</button></div>
-    <label class="check"><input type="checkbox" id="cNasc" ${MOSTRA_NASCOSTI ? 'checked' : ''}> Mostra voci nascoste</label>
+    <div class="row between"><label class="check" style="margin:0"><input type="checkbox" id="cNasc" ${MOSTRA_NASCOSTI ? 'checked' : ''}> Mostra voci nascoste</label>
+      <button class="btn small" id="cGioco">🎲 Conti di gioco</button></div>
     <div class="tree" id="cAlbero"></div>
     <p class="muted" style="font-size:12.5px;margin-top:16px">Tocca una voce per modificarla, aggiungere sottovoci, dare il saldo iniziale o aggiornarne il valore.</p>`;
   const el = $('#cAlbero');
@@ -685,6 +686,16 @@ function vistaConti() {
     };
   });
   $('#cNasc').onchange = e => { MOSTRA_NASCOSTI = e.target.checked; vistaConti(); };
+  $('#cGioco').onclick = async () => {
+    if (!confirm('Imposto i conti per Poker live, Poker online, Trading sportivo e Scommesse (vincite/perdite, spese poker, bankroll live)? Quelli esistenti vengono rinominati, i movimenti restano.')) return;
+    attesa(true, 'Imposto i conti…');
+    try {
+      const j = await api('impostaContiGioco');
+      await caricaDati(false); render();
+      apriSheet('<h3>Conti di gioco</h3>' + (j.modifiche.length ? '<div class="hint">' + j.modifiche.map(esc).join('<br>') + '</div>' : '<p>Erano già impostati: nessuna modifica.</p>') +
+        '<button class="btn block" id="okG" style="margin-top:14px">Ok</button>', s2 => s2.querySelector('#okG').onclick = chiudiSheet);
+    } catch (e) { toast(e.message, 5000); } finally { attesa(false); }
+  };
   $('#cNuovo').onclick = () => formNuovaVoce('');
 }
 
@@ -1243,7 +1254,10 @@ function disegnaGrafici(st) {
 
     ${giocoAttivo ? `<div class="card"><div class="row between"><h3 style="margin:0">Gioco e trading sportivo</h3><b class="${t.gioco < 0 ? 'rosso' : 'verde'}">${t.gioco > 0 ? '+' : ''}${eur(t.gioco)}</b></div>
       <div class="chart-box" style="margin-top:10px"><canvas id="cGioco"></canvas></div>
-      <div class="muted" style="font-size:12.5px;margin-top:6px">Barre: risultato netto del mese. Linea: risultato cumulato nel periodo.</div></div>` : ''}
+      <div class="muted" style="font-size:12.5px;margin-top:6px">Barre: risultato netto del mese per attività (comprese le spese, es. viaggi poker). Linea: risultato totale cumulato.</div>
+      <table class="t" style="margin-top:10px">${(st.giocoAttivita || []).map((a, i) => `<tr><td><span class="pt" style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;background:${PALETTE[i % PALETTE.length]}"></span>${esc(a.nome)}</td><td class="num ${a.totale < 0 ? 'rosso' : 'verde'}"><b>${a.totale > 0 ? '+' : ''}${eur(a.totale)}</b></td></tr>`).join('')}</table>
+      ${(st.giocoEtichette || []).length ? `<h3 style="margin-top:16px">Per etichetta</h3><table class="t">${st.giocoEtichette.map(e => `<tr><td>${esc(e.etichetta)} <span class="muted" style="font-size:12px">· ${esc(e.attivita)}</span></td><td class="num ${e.valore < 0 ? 'rosso' : 'verde'}">${e.valore > 0 ? '+' : ''}${eur(e.valore)}</td></tr>`).join('')}</table>
+        <div class="muted" style="font-size:12.5px;margin-top:6px">Es. club, casa di amici, trasferta. Un movimento con più etichette conta in ciascuna.</div>` : ''}</div>` : ''}
 
     <div class="card"><h3>Composizione del patrimonio</h3>
       ${comp.length ? '<div class="chart-box" style="height:' + Math.max(160, comp.length * 42) + 'px"><canvas id="cComp"></canvas></div>' : vuoto('Inserisci i saldi iniziali dei conti per vederla.')}</div>`;
@@ -1275,10 +1289,12 @@ function disegnaGrafici(st) {
   if (giocoAttivo) {
     let cum = 0;
     const cumul = st.gioco.map(v => (cum = Math.round((cum + v) * 100) / 100));
-    nuovoGrafico('cGioco', { type: 'bar', data: { labels: mesi, datasets: [
-        { label: 'Netto del mese', data: st.gioco, backgroundColor: st.gioco.map(v => v < 0 ? rosso : verde), borderRadius: 4, order: 2 },
-        { label: 'Cumulato', type: 'line', data: cumul, borderColor: blu, backgroundColor: blu, tension: .3, pointRadius: 3, order: 1 }
-      ] }, options: { plugins: { tooltip: tooltipEuro, legend: { position: 'bottom', labels: { boxWidth: 12 } } }, scales: assiEuro } });
+    const att = (st.giocoAttivita || []).length ? st.giocoAttivita : [{ nome: 'Netto del mese', mesi: st.gioco }];
+    nuovoGrafico('cGioco', { type: 'bar', data: { labels: mesi, datasets: att.map((a, i) => (
+        { label: a.nome, data: a.mesi, backgroundColor: PALETTE[i % PALETTE.length], borderRadius: 3, stack: 'g', order: 2 })).concat([
+        { label: 'Totale cumulato', type: 'line', data: cumul, borderColor: css('--ink'), backgroundColor: css('--ink'), tension: .3, pointRadius: 3, order: 1 }]) },
+      options: { plugins: { tooltip: tooltipEuro, legend: { position: 'bottom', labels: { boxWidth: 12 } } },
+        scales: { y: Object.assign({}, assiEuro.y, { stacked: true }), x: { stacked: true, grid: { display: false } } } } });
   }
 
   nuovoGrafico('cComp', { type: 'bar', data: { labels: comp.map(x => x.nome),

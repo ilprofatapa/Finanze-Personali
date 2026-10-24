@@ -25,12 +25,12 @@ Sicurezza: il token API (Proprietà script `API_TOKEN`, visibile da *💰 Finanz
 ## 2. File
 
 **Apps Script**
-- `Codice.gs` (versione attuale **1.5**): tutto il backend.
+- `Codice.gs` (versione attuale **1.6**): tutto il backend.
 - `Form.html`: pannello "Nuova transazione" dentro Google Sheets (menu 💰 Finanze).
 
 **Repository GitHub (PWA)**
 - `index.html`: tutta l'app (HTML + CSS + JS in un file, nessuna libreria esterna).
-- `manifest.webmanifest`, `sw.js` (service worker, cache `finanze-v4`), `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `LEGGIMI.md`.
+- `manifest.webmanifest`, `sw.js` (service worker, cache `finanze-v5`), `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `LEGGIMI.md`.
 
 ---
 
@@ -93,9 +93,17 @@ Controlli anti-errore: `controlliCoerenza_()` in Codice.gs (rimborsi, ricariche,
 - Etichette multiple separate da virgola (es. "Poker, Bratislava 2026"), suggerite nel modulo.
 - Poker/trasferte: costi per natura sotto Costi › Gioco e trading sportivo, la trasferta si raggruppa con l'etichetta, non con un conto dedicato. Bankroll live su un conto separato tra i Conti gioco. Sponsor (staking): i buy-in pagati dallo sponsor non sono costi propri; le vincite di sua spettanza sono un debito verso di lui.
 
+## Attività di gioco (v1.6)
+
+- Quattro attività: **Poker live**, **Poker online**, **Trading sportivo** (exchange), **Scommesse** (quota fissa/schedine). Il conto dei soldi (Betfair, bookmaker, piattaforma poker, Bankroll poker live) è separato dal conto di risultato.
+- Convenzione: il nome del conto inizia con l'attività seguita da " – " (es. "Poker live – vincite", "Trading sportivo – perdite", "Poker live – viaggi e alloggio"). Grafici e ricerca riconoscono l'attività dal nome.
+- Funzione `impostaContiGioco()` (menu del foglio o Conti → 🎲 Conti di gioco): rinomina i conti di default e crea quelli mancanti, idempotente.
+- Grafici: risultato mensile per attività (barre impilate) + cumulato, totali per attività, totali per etichetta (luogo/club/trasferta).
+- Registrazione: solo il netto di sessione/giornata. Betfair: netto exchange e netto sportsbook registrati separatamente.
+
 ## 6. API (`doPost`, campo `azione`)
 
-`datiApp` · `registraSemplice` · `registraScrittura` · `saldi` · `aggiungiConto` · `modificaConto` · `eliminaConto` · `cestina` · `saldoIniziale` · `allinea` (RIVALUTAZIONE / RETTIFICA) · `fiscale` · `ammortamenti` · `analizzaImmagine` · `assistente` · `salvaRicorrente` · `eliminaRicorrente` · `confermaScadenza` · `movimenti` (ricerca su tutta la Prima nota, filtri conto/periodo/etichetta/testo/cestino, con riepilogo) · `ripristina` · `statistiche` (dati dei grafici)
+`datiApp` · `registraSemplice` · `registraScrittura` · `saldi` · `aggiungiConto` · `modificaConto` · `eliminaConto` · `cestina` · `saldoIniziale` · `allinea` (RIVALUTAZIONE / RETTIFICA) · `fiscale` · `ammortamenti` · `analizzaImmagine` · `assistente` · `salvaRicorrente` · `eliminaRicorrente` · `confermaScadenza` · `movimenti` (ricerca su tutta la Prima nota, filtri conto/periodo/etichetta/testo/cestino, con riepilogo) · `ripristina` · `statistiche` (dati dei grafici) · `impostaContiGioco`
 
 Gemini: funzione `gemini_()` → modello da Config (default `gemini-flash-latest`), con riprova e riserva `gemini-flash-lite-latest` se sovraccarico.
 
